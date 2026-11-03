@@ -10,7 +10,8 @@ export const esc = s => String(s).replace(/[&<>"']/g, c => ({
 export const v = (id, fallback) => state.g.values[id] ?? fallback;
 export const c = id => !!state.g.checks[id];
 export const check = (id, txt) => `<label class="check"><input type="checkbox" data-check="${esc(id)}" ${c(id) ? 'checked' : ''}><span class="${c(id) ? 'completed' : ''}">${txt}</span></label>`;
-export const select = (id, opts, d) => `<select class="field" data-value="${esc(id)}">${opts.map(([x, t]) => `<option value="${esc(x)}" ${String(v(id, d)) === String(x) ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>`;
+export const toggle = (id, txt) => `<label class="check"><input type="checkbox" data-check="${esc(id)}" ${c(id) ? 'checked' : ''}><span>${txt}</span></label>`;
+export const select = (id, opts, d, label) => `<select class="field" data-value="${esc(id)}"${label ? ` aria-label="${esc(label)}"` : ''}>${opts.map(([x, t]) => `<option value="${esc(x)}" ${String(v(id, d)) === String(x) ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>`;
 export const counter = (id, d, maximum) => `<div class="counter"><button class="tinybtn" data-number="${esc(id)}" data-delta="-1">−</button><b>${v(id, d)}</b><button class="tinybtn" data-number="${esc(id)}" data-delta="1" data-max="${maximum}">+</button></div>`;
 export const panel = (title, txt) => `<div class="panel">${title ? `<div class="section" style="margin-top:0">${title}</div>` : ''}${txt}</div>`;
 export const note = s => `<div class="note">${s}</div>`;

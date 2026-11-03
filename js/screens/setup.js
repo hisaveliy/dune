@@ -1,12 +1,12 @@
 import { F, N, startingSetup } from "../data.js";
 import { state } from "../state.js";
-import { c, check, esc, foot, note, panel } from "../ui.js";
+import { c, check, esc, foot, note, panel, toggle } from "../ui.js";
 import { setupList } from "../game.js";
 export function create() {
   return `<div class="top"><button class="subtle" data-action="home">← Главная</button><strong>Создание игры</strong></div><div class="body"><h2>Выбор домов</h2><p class="muted">От 2 до 6 фракций.</p><div class="grid">${F.map(f => `<button class="choice ${state.g.selected.includes(f) ? 'active' : ''}" data-faction="${f}">${N[f]} ${state.g.selected.includes(f) ? '✓' : ''}</button>`).join('')}</div><div class="section">Порядок хода</div>${state.g.selected.map((f, i) => `<div class="panel"><div class="row"><strong>${i + 1}. ${N[f]}</strong><div><button class="tinybtn" data-order="${i}" data-shift="-1" ${i === 0 ? 'disabled' : ''}>↑</button> <button class="tinybtn" data-order="${i}" data-shift="1" ${i === state.g.selected.length - 1 ? 'disabled' : ''}>↓</button></div></div><input class="field" data-player="${f}" placeholder="Имя игрока (необязательно)" value="${esc(state.g.playerNames[f] || '')}"></div>`).join('')}</div>${foot('Настройки', 'settings')}`;
 }
 export function settings() {
-  return `<div class="top"><button class="subtle" data-action="create">← Назад</button><strong>Настройки</strong></div><div class="body"><h2>Правила партии</h2>${check('advanced', 'Advanced Rules')}${check('alliances', 'Альянсы')}<div class="section">Модули</div>${['discovery', 'stronghold', 'tech'].map(n => check('module-' + n, {
+  return `<div class="top"><button class="subtle" data-action="create">← Назад</button><strong>Настройки</strong></div><div class="body"><h2>Правила партии</h2>${toggle('advanced', 'Advanced Rules')}${toggle('alliances', 'Альянсы')}<div class="section">Модули</div>${['discovery', 'stronghold', 'tech'].map(n => toggle('module-' + n, {
     discovery: 'Discovery Tokens',
     stronghold: 'Stronghold Cards',
     tech: 'Tech Tokens'

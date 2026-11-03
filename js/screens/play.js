@@ -1,3 +1,6 @@
+import { spiceBlow } from "./spice-blow.js";
+import { charity, inflationMentat } from "./charity.js";
+import { bidding } from "./bidding.js";
 import { allExtra, c, check, counter, esc, extra, note, panel, select, v } from "../ui.js";
 import { N, P, free } from "../data.js";
 import { state } from "../state.js";
@@ -8,18 +11,11 @@ export function phaseContent(s) {
       f = s.f;
   if (s.p === 0) return panel('Storm', `<p>Переместите бурю и примените последствия, затем определите первого игрока по полю.</p>${check(base + '-storm', 'Буря перемещена; последствия разрешены.')}${allExtra(0)}`);
 
-  if (s.p === 1) {
-    let id = base + s.part;
-    return panel('Spice Blow · стопка ' + s.part, `<p>Обрабатывайте карты последовательно до завершения стопки, в том числе повторных червей. В первом раунде действуют специальные ограничения на Nexus.</p>${select(id + '-type', [['spice', 'Обычный Spice Blow'], ['worm', 'Shai-Hulud'], ['great', 'Great Maker'], ['discovery', 'Discovery Token'], ['other', 'Другой / следующий эффект']], 'spice')}${note('Если требуется, примените Nexus, Fremen worm ride и последствия событий, затем вернитесь к открытию карт.')}${check(id + '-done', 'Вся стопка обработана.')}${allExtra(1)}`);
-  }
+  if (s.p === 1) return spiceBlow(s);
 
-  if (s.p === 2) {
-    let id = base + f,
-        br = v(id + '-bracket', '2');
-    return `<h2>${N[f]}</h2>${panel('Charity', `<p>Спайс игрока перед благотворительностью:</p>${select(id + '-bracket', [['0', '0'], ['1', '1'], ['2', '2+']], '2')}${note('Базовая выплата: ' + (br === '0' ? 2 : br === '1' ? 1 : 0) + ' спайса.' + (state.g.selected.includes('CHOAM') ? ' Плательщик — CHOAM по своим правилам.' : ''))}${f === 'CHOAM' ? note('До благотворительности CHOAM получает ' + state.g.selected.length * 2 + ' спайса.') : ''}${check(id + '-done', 'Charity завершена.')}`)}${extra(f, 2)}`;
-  }
+  if (s.p === 2) return charity(s.r);
 
-  if (s.p === 3) return panel(s.part === 'prepare' ? 'Bidding — подготовка' : 'Bidding — аукцион', `<p>${s.part === 'prepare' ? 'Определите количество доступных карт и места в руках.' : 'Проведите торги за столом, примените платежи и права фракций.'}</p>${check(base + s.part, 'Этап торгов завершён.')}${allExtra(3)}`);
+  if (s.p === 3) return bidding(s);
 
   if (s.p === 4) {
     let id = base + f,
@@ -62,7 +58,7 @@ export function phaseContent(s) {
 
   if (s.p === 8) {
     let type = v(base + '-victory', 'none');
-    return panel('Mentat Pause', `<p>Проверьте контроль крепостей и модули. Не объявляйте победу по одному лишь числу без проверки условий.</p>${select(base + '-victory', [['none', 'Обычной победы нет'], ['solo', 'Одиночная победа'], ['alliance', 'Победа альянса'], ['ecaz', 'Особая союзная победа Ecaz'], ['unclear', 'Спорная / одновременная победа']], 'none')}${type !== 'none' ? select(base + '-winner', state.g.selected.map(f => [f, N[f]]), state.g.selected[0]) : ''}${s.r === 10 ? note('10-й раунд: проверьте специальную победу Фременов, затем Гильдии и порядок разрешения исключений.') : ''}<div class="section">Проверки фракций</div>${allExtra(8)}${state.g.modules.discovery ? check(base + '-discovery', 'Дополнительные крепости Discovery проверены.') : ''}${state.g.modules.stronghold ? check(base + '-strong', 'Stronghold Cards проверены.') : ''}${state.g.modules.tech ? check(base + '-tech', 'Tech Tokens проверены.') : ''}${check(base + '-general', 'Все применимые проверки завершены.')}`);
+    return panel('Mentat Pause', `<p>Проверьте контроль крепостей и модули. Не объявляйте победу по одному лишь числу без проверки условий.</p>${select(base + '-victory', [['none', 'Обычной победы нет'], ['solo', 'Одиночная победа'], ['alliance', 'Победа альянса'], ['ecaz', 'Особая союзная победа Ecaz'], ['unclear', 'Спорная / одновременная победа']], 'none')}${type !== 'none' ? select(base + '-winner', state.g.selected.map(f => [f, N[f]]), state.g.selected[0]) : ''}${s.r === 10 ? note('10-й раунд: проверьте специальную победу Фременов, затем Гильдии и порядок разрешения исключений.') : ''}<div class="section">Проверки фракций</div>${allExtra(8)}${inflationMentat(s.r)}${state.g.modules.discovery ? check(base + '-discovery', 'Дополнительные крепости Discovery проверены.') : ''}${state.g.modules.stronghold ? check(base + '-strong', 'Stronghold Cards проверены.') : ''}${state.g.modules.tech ? check(base + '-tech', 'Tech Tokens проверены.') : ''}${check(base + '-general', 'Все применимые проверки завершены.')}`);
   }
 
   return '';

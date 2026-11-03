@@ -16,6 +16,7 @@ export const fresh = () => ({
   },
   checks: {},
   values: {},
+  timelineVersion: 2,
   cursor: 0,
   started: false,
   finished: false,
@@ -26,12 +27,12 @@ export const fresh = () => ({
   round: 1,
   phase: 0
 });
-export function timeline() {
+export function timeline(legacyCharity = false) {
   const a = [];
 
   for (let r = 1; r <= 10; r++) {
     for (let p = 0; p < 9; p++) {
-      if ([2, 4, 5, 7].includes(p)) {
+      if ([4, 5, 7].includes(p) || legacyCharity && p === 2) {
         for (const f of state.g.selected) {
           if (p === 5) {
             a.push({
@@ -93,6 +94,12 @@ export function timeline() {
 }
 export const current = () => timeline()[state.g.cursor];
 export const key = x => [x.r, x.p, x.f || 'shared', x.part].join('|');
+export function migrateCharityTimeline() {
+  if (state.g.timelineVersion === 2) return;
+  const previous = timeline(true)[state.g.cursor];
+  state.g.cursor = timeline().findIndex(s => s.r === previous.r && s.p === previous.p && s.part === previous.part && (s.p === 2 || s.f === previous.f));
+  state.g.timelineVersion = 2;
+}
 export function step(delta) {
   settle();
   let next = state.g.cursor + delta,
@@ -117,7 +124,11 @@ export function step(delta) {
   persist();
 }
 export function setupList() {
-  let a = [['general-board', 'Поле, банк спайса, фишки и ширмы подготовлены.'], ['general-storm', 'Подготовить стартовое положение бури.'], ['general-traitors', 'Раздать Traitor Cards с учётом исключений фракций.'], ['general-treachery', 'Раздать стартовые Treachery Cards, включая исключения Харконненов и Иксиан.'], ['general-spice', 'Подготовить две стопки Spice Deck.']];
+  const exceptions = [];
+  if (state.g.selected.includes('Harkonnen')) exceptions.push('исключение Харконненов');
+  if (state.g.selected.includes('Ixians')) exceptions.push('исключение Иксиан');
+  const treachery = 'Раздать стартовые Treachery Cards' + (exceptions.length ? ', учитывая ' + exceptions.join(' и ') : '') + '.';
+  let a = [['general-board', 'Поле, банк спайса, фишки и ширмы подготовлены.'], ['general-storm', 'Подготовить стартовое положение бури.'], ['general-traitors', 'Раздать Traitor Cards с учётом исключений фракций.'], ['general-treachery', treachery], ['general-spice', 'Подготовить две стопки Spice Deck.']];
   if (state.g.modules.discovery) a.push(['general-discovery', 'Подготовить Discovery Tokens.']);
   if (state.g.modules.stronghold) a.push(['general-strongholds', 'Подготовить Stronghold Cards.']);
   if (state.g.modules.tech) a.push(['general-tech', 'Подготовить Tech Tokens.']);

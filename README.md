@@ -18,10 +18,12 @@
 - `js/state.js` — текущее состояние приложения.
 - `js/data.js` — фракции, стартовые условия и подсказки способностей.
 - `js/game.js` — создание партии, последовательность ходов и переходы.
+- `js/charity.js` — расчёт выплат Charity и двухраундового эффекта инфляции CHOAM.
 - `js/timers.js` — учёт времени и расчёт статистики.
 - `js/storage.js` — загрузка и сохранение партий в localStorage.
 - `js/ui.js` — общие элементы интерфейса: кнопки, чекбоксы, поля и панели.
 - `js/screens/` — главная, подготовка, игровой экран и статистика.
+- `js/screens/spice-blow.js`, `charity.js`, `bidding.js` — события Spice Blow, общий экран Charity и правила торгов.
 - `manifest.webmanifest` — метаданные устанавливаемого веб-приложения.
 - `sw.js` — базовый offline cache (после первого открытия через HTTPS).
 - `icon.svg` — значок.
@@ -39,6 +41,21 @@ node --experimental-vm-modules --test tests/app.test.cjs
 ```
 
 Проверки выполняют код приложения с имитацией DOM, localStorage и времени: создание партии, подготовку, навигацию, таймеры, сохранения, все 12 фракций и 10 раундов. Также проверяются пути модулей и состав offline cache. Визуальное отображение следует проверять в браузере.
+
+### Charity и совместимость сохранений
+
+Charity отображается на одном общем экране. Ввод запасов используется только для расчёта этой фазы: приложение не ведёт общий кошелёк игрока в остальных фазах. Для CHOAM показываются полученный доход, выплаты и остаток; полный запас рассчитывается при вводе запаса до фазы.
+
+Жетон инфляции размещается в Mentat Pause. Он изменяет Charity в следующих двух раундах: Double → Cancel или Cancel → Double. Эффекты рассчитываются по раунду размещения, поэтому навигация назад и повторная загрузка не переворачивают жетон второй раз.
+
+При загрузке старой партии позиция переносится на соответствующий шаг новой последовательности. Старое персональное время Charity и введённые значения сохраняются; новый общий экран учитывает добавленное на нём время как общее время фазы.
+
+### Источники правил для обновлённых экранов
+
+- [GF9 Dune Rulebook](https://www.gf9games.com/dunegame/wp-content/uploads/Dune-Rulebook.pdf) и [FAQ, ноябрь 2020](https://www.gf9games.com/dune/wp-content/uploads/2020/11/Dune-FAQ-Nov-2020.pdf): Spice Blow, Nexus, Charity, Bene Gesserit, обычные торги и повторный вход после паса.
+- [GF9 CHOAM & Richese](https://www.gf9games.com/dune/wp-content/uploads/2021/11/CHOAM-Rulebook-low-res.pdf), стр. 5–8, 10–12: выплаты CHOAM, инфляция, аукционы Richese, Black Market и исключения Tech Tokens.
+- [GF9 Ecaz & Moritani](https://www.gf9games.com/dune/wp-content/uploads/EcazMoritani-Rulebook-LOWRES.pdf), стр. 12–13: Discovery Spice Cards, Great Maker, Hiereg и Smuggler.
+- [GF9 Ixians & Tleilaxu](https://www.gf9games.com/dunegame/wp-content/uploads/2020/09/IxianAndTleilaxuRulebook.pdf): защита Hidden Mobile Stronghold от червей и Spice Production.
 
 ### Ограничения
 

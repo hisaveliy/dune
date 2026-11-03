@@ -127,6 +127,7 @@ test('back/next accumulate time, pause and saving/loading preserve progress', as
   assert.deepEqual(a.game().elapsed, elapsed);
   a.action('next');
   a.action('next');
+  await reach(a, 1, 4);
   a.tick(2000);
   assert.equal(a.clocks.phase.textContent, '00:00:02');
   assert.equal(a.clocks.step.textContent, '00:00:02');
@@ -203,4 +204,182 @@ test('every local asset and ES module import is included in the offline cache', 
     }
   }
   for (const asset of assets) assert.ok(fs.existsSync(path.resolve(root, asset)), `Asset exists: ${asset}`);
+});
+
+async function gameWith(selected, overrides = {}) {
+  const a = await createApp();
+  a.action('new');
+  return { ...a.game(), selected, ...overrides };
+}
+
+async function resume(game) {
+  const a = await createApp([game]);
+  a.action('saved');
+  a.click('load', game.id);
+  return a;
+}
+
+async function reach(a, round, phase) {
+  for (let guard = 0; a.game().round !== round || a.game().phase !== phase; guard++) {
+    assert.ok(guard < 500, `Reach round ${round}, phase ${phase}`);
+    a.action('next');
+  }
+}
+
+test('settings remain readable when enabled; preparation keeps completed checklist styling and filters absent factions', async () => {
+  for (const selected of [['Atreides', 'Harkonnen'], ['Atreides', 'Ixians'], ['Atreides', 'Emperor']]) {
+    const a = await resume(await gameWith(selected));
+    a.action('settings');
+    assert.doesNotMatch(a.app.innerHTML, /class="completed"/);
+    a.action('setup');
+    assert.equal(a.app.innerHTML.includes('исключение Иксиан'), selected.includes('Ixians'));
+    assert.equal(a.app.innerHTML.includes('исключение Харконненов'), selected.includes('Harkonnen'));
+    a.change({ check: 'general-board' }, true);
+    assert.match(a.app.innerHTML, /class="completed">Поле/);
+  }
+});
+
+test('Spice Blow checklists change by event, round, module and participating factions', async () => {
+  const a = await resume(await gameWith(['Atreides', 'Fremen', 'Guild', 'Bene Gesserit'], { started: true }));
+  a.action('next');
+  a.change({ value: 'r1p1A-type' }, 'worm');
+  assert.match(a.app.innerHTML, /В первом раунде.*не вызывает Nexus/);
+  assert.doesNotMatch(a.app.innerHTML, /data-value="r1p1A-great-vote/);
+  a.change({ value: 'r1p1A-type' }, 'discovery');
+  assert.match(a.app.innerHTML, /6 спайса/);
+  assert.match(a.app.innerHTML, /включая Фременов и советниц/);
+  assert.match(a.app.innerHTML, /Hiereg.*не раскрывая/);
+  a.change({ value: 'r1p1A-discovery-kind' }, 'smuggler');
+  assert.match(a.app.innerHTML, /Гильдия.*Smuggler.*не раскрывая/);
+  assert.doesNotMatch(a.app.innerHTML, /Moritani|Иксиан/);
+  await reach(a, 2, 1);
+  a.change({ value: 'r2p1A-type' }, 'great');
+  for (const faction of a.game().selected.slice(0, 2)) a.change({ value: 'r2p1A-great-vote-' + faction }, 'yes');
+  for (const faction of a.game().selected.slice(2)) a.change({ value: 'r2p1A-great-vote-' + faction }, 'no');
+  assert.match(a.app.innerHTML, /Ничья: Nexus не происходит/);
+  a.change({ value: 'r2p1A-great-vote-Guild' }, 'yes');
+  assert.match(a.app.innerHTML, /Большинство за Nexus/);
+  assert.match(a.app.innerHTML, /из резерва/);
+  const disabled = await resume(await gameWith(['Atreides', 'Emperor'], {
+    started: true, modules: { discovery: false, tech: false, stronghold: false }
+  }));
+  disabled.action('next');
+  assert.doesNotMatch(disabled.app.innerHTML, /value="discovery"|value="great"/);
+});
+
+test('Charity is shared and calculates CHOAM payouts, Bene Gesserit and both inflation orders', async () => {
+  for (const first of ['double', 'cancel']) {
+    const a = await resume(await gameWith(['CHOAM', 'Atreides', 'Fremen', 'Bene Gesserit'], { started: true }));
+    await reach(a, 1, 2);
+    assert.equal(a.game().active, '1|2|shared|main');
+    assert.doesNotMatch(a.app.innerHTML, /Charity завершена/);
+    a.change({ value: 'r1p2Atreides-bracket' }, '0');
+    a.change({ value: 'r1p2Fremen-bracket' }, '1');
+    a.change({ value: 'r1p2Bene Gesserit-bracket' }, '2');
+    assert.match(a.app.innerHTML, /data-charity="Atreides">2</);
+    assert.match(a.app.innerHTML, /data-charity="Fremen">1</);
+    assert.match(a.app.innerHTML, /data-charity="Bene Gesserit">2</);
+    assert.match(a.app.innerHTML, /data-choam-income>8</);
+    assert.match(a.app.innerHTML, /data-choam-remaining>3</);
+    a.change({ value: 'r1p2CHOAM-stock' }, '7');
+    assert.match(a.app.innerHTML, /data-choam-total>10</);
+    a.input({ value: 'r1p2CHOAM-stock' }, '12');
+    assert.equal(a.game().values['r1p2CHOAM-stock'], 12);
+    a.input({ value: 'r1p2CHOAM-stock' }, '');
+    assert.equal(a.game().values['r1p2CHOAM-stock'], '');
+    a.tick(2000);
+    a.action('next');
+    assert.equal(a.game().phase, 3);
+    a.action('back');
+    assert.equal(a.clocks.step.textContent, '00:00:02');
+    await reach(a, 1, 8);
+    a.change({ value: 'r1p8-inflation' }, first);
+    for (let round = 2; round <= 4; round++) {
+      await reach(a, round, 2);
+      const factor = round === 4 ? 1 : (round === 2 ? first === 'double' : first !== 'double') ? 2 : 0;
+      a.change({ value: `r${round}p2Atreides-bracket` }, '0');
+      a.change({ value: `r${round}p2Fremen-bracket` }, '1');
+      assert.match(a.app.innerHTML, new RegExp(`data-charity="Atreides">${2 * factor}<`));
+      assert.match(a.app.innerHTML, new RegExp(`data-charity="Fremen">${factor}<`));
+      assert.match(a.app.innerHTML, new RegExp(`data-charity="Bene Gesserit">${2 * factor}<`));
+      assert.match(a.app.innerHTML, new RegExp(`data-choam-income>${8 * factor}<`));
+      a.action('home');
+      a.action('saved');
+      a.click('load', a.game().id);
+      assert.match(a.app.innerHTML, new RegExp(`data-choam-income>${8 * factor}<`));
+      await reach(a, round, 8);
+      assert.doesNotMatch(a.app.innerHTML, /data-value="r\dp8-inflation"/);
+    }
+  }
+});
+
+test('Bidding preparation has actual tasks, normal auction rules and Richese exceptions', async () => {
+  for (const richese of [false, true]) {
+    const a = await resume(await gameWith(richese ? ['Richese', 'Atreides'] : ['Atreides', 'Emperor'], { started: true }));
+    await reach(a, 1, 3);
+    assert.match(a.app.innerHTML, /data-check="r1p3-hands"/);
+    assert.match(a.app.innerHTML, /data-check="r1p3-cards"/);
+    assert.doesNotMatch(a.app.innerHTML, /Этап торгов завершён/);
+    assert.match(a.app.innerHTML, /все.*пас.*обычные торги завершаются/);
+    assert.equal(a.app.innerHTML.includes('Once Around'), richese);
+    assert.equal(a.app.innerHTML.includes('Black Market'), richese);
+    if (richese) assert.ok(a.app.innerHTML.indexOf('Black Market') < a.app.innerHTML.indexOf('data-check="r1p3-hands"'));
+    a.action('next');
+    assert.match(a.app.innerHTML, /Bidding — аукцион/);
+    assert.doesNotMatch(a.app.innerHTML, /Этап торгов завершён/);
+  }
+});
+
+test('legacy Charity cursors migrate once while preserving historic player time and inputs', async () => {
+  for (const [cursor, expectedCursor, phase] of [[33, 28, 2], [35, 29, 3], [55, 49, 9]]) {
+    const legacy = await gameWith(['Fremen', 'Atreides', 'Harkonnen', 'Emperor'], {
+      started: true, cursor, round: 2, phase,
+      values: { 'r2p2Atreides-bracket': '1' },
+      elapsed: { '2|2|Atreides|main': 7000, '1|0|shared|main': 3000 }
+    });
+    delete legacy.timelineVersion;
+    const a = await resume(legacy);
+    assert.equal(a.game().cursor, expectedCursor);
+    assert.equal(a.game().timelineVersion, 2);
+    assert.deepEqual(a.game().elapsed, legacy.elapsed);
+    assert.equal(a.game().values['r2p2Atreides-bracket'], '1');
+    if (phase !== 9) a.action('home');
+    const again = await resume(a.game());
+    assert.equal(again.game().cursor, expectedCursor);
+    for (const [key, time] of Object.entries(legacy.elapsed)) assert.equal(again.game().elapsed[key], time);
+  }
+});
+
+test('Charity without CHOAM uses bank payouts and Bene Gesserit only get automatic Charity in Advanced', async () => {
+  for (const advanced of [false, true]) {
+    const a = await resume(await gameWith(['Atreides', 'Bene Gesserit'], { started: true, advanced }));
+    await reach(a, 1, 2);
+    a.change({ value: 'r1p2Atreides-bracket' }, '1');
+    assert.match(a.app.innerHTML, /data-charity="Atreides">1</);
+    assert.match(a.app.innerHTML, new RegExp(`data-charity="Bene Gesserit">${advanced ? 2 : 0}<`));
+    assert.doesNotMatch(a.app.innerHTML, /data-choam-income|data-choam-remaining/);
+    a.change({ value: 'r1p2Bene Gesserit-bracket' }, '0');
+    assert.match(a.app.innerHTML, /data-charity="Bene Gesserit">2</);
+    a.action('next');
+    assert.equal(a.game().phase, 3);
+    a.action('back');
+    assert.equal(a.game().phase, 2);
+  }
+});
+
+test('event checklist state persists independently, and Richese Black Market is Advanced only', async () => {
+  const a = await resume(await gameWith(['Richese', 'Fremen'], { started: true, advanced: false }));
+  a.action('next');
+  a.change({ value: 'r1p1A-type' }, 'discovery');
+  a.change({ check: 'r1p1A-discovery-spice' }, true);
+  a.change({ value: 'r1p1A-type' }, 'spice');
+  assert.doesNotMatch(a.app.innerHTML, /data-check="r1p1A-spice-storm" checked/);
+  a.change({ value: 'r1p1A-type' }, 'discovery');
+  assert.match(a.app.innerHTML, /data-check="r1p1A-discovery-spice" checked/);
+  a.action('home');
+  const loaded = await resume(a.game());
+  assert.match(loaded.app.innerHTML, /data-check="r1p1A-discovery-spice" checked/);
+  await reach(loaded, 1, 3);
+  assert.match(loaded.app.innerHTML, /Once Around/);
+  assert.doesNotMatch(loaded.app.innerHTML, /Black Market/);
 });

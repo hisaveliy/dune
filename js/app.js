@@ -3,9 +3,10 @@ import { home, saved } from "./screens/home.js";
 import { create, settings, setup } from "./screens/setup.js";
 import { play } from "./screens/play.js";
 import { ended, statistics } from "./screens/statistics.js";
+import { choamBalance } from "./screens/charity.js";
 import { settle, spent, phaseMs, fmt } from "./timers.js";
 import { copy, persist } from "./storage.js";
-import { activate, current, fresh, key, step } from "./game.js";
+import { activate, current, fresh, key, migrateCharityTimeline, step } from "./game.js";
 import { v } from "./ui.js";
 const el = document.getElementById('app');
 
@@ -92,6 +93,7 @@ el.addEventListener('click', evt => {
 
   if (b.dataset.load) {
     state.g = copy(state.library.find(z => z.id === b.dataset.load));
+    migrateCharityTimeline();
 
     if (state.g.started && !state.g.finished) {
       state.page = current().p === 9 ? 'stats' : 'play';
@@ -202,7 +204,7 @@ el.addEventListener('change', evt => {
   }
 
   if (x.dataset.value) {
-    state.g.values[x.dataset.value] = x.value;
+    state.g.values[x.dataset.value] = /^r\d+p2CHOAM-stock$/.test(x.dataset.value) && x.value !== '' ? Math.max(0, Math.floor(Number(x.value))) : x.value;
     persist();
     render();
     return;
@@ -215,6 +217,13 @@ el.addEventListener('change', evt => {
 });
 el.addEventListener('input', evt => {
   let x = evt.target;
+
+  if (state.g && x.dataset.value && /^r\d+p2CHOAM-stock$/.test(x.dataset.value)) {
+    state.g.values[x.dataset.value] = x.value === '' ? '' : Math.max(0, Math.floor(Number(x.value)));
+    persist();
+    const balance = el.querySelector('[data-choam-balance]');
+    if (balance) balance.innerHTML = choamBalance(current().r);
+  }
 
   if (state.g && x.dataset.player) {
     state.g.playerNames[x.dataset.player] = x.value;
