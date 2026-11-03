@@ -383,3 +383,210 @@ test('event checklist state persists independently, and Richese Black Market is 
   assert.match(loaded.app.innerHTML, /Once Around/);
   assert.doesNotMatch(loaded.app.innerHTML, /Black Market/);
 });
+
+test('Atreides prescience appears only at the first Shipment step of each round', async () => {
+  const a = await resume(await gameWith(['Fremen', 'Atreides'], {
+    started: true, checks: { 'r1p1-prescience': true }
+  }));
+  await reach(a, 1, 1);
+  assert.doesNotMatch(a.app.innerHTML, /prescience|верхнюю карту Spice Deck/);
+  a.action('next');
+  assert.doesNotMatch(a.app.innerHTML, /prescience|верхнюю карту Spice Deck/);
+  await reach(a, 1, 5);
+  assert.equal(a.game().active, '1|5|Fremen|ship');
+  assert.match(a.app.innerHTML, /data-check="r1p5-prescience"/);
+  assert.doesNotMatch(a.app.innerHTML, /data-check="r1p5-prescience" checked/);
+  assert.ok(a.app.innerHTML.indexOf('data-check="r1p5-prescience"') < a.app.innerHTML.indexOf('Количество войск'));
+  a.change({ check: 'r1p5-prescience' }, true);
+  a.action('next');
+  assert.doesNotMatch(a.app.innerHTML, /prescience/);
+  a.action('next');
+  assert.equal(a.game().active, '1|5|Atreides|ship');
+  assert.doesNotMatch(a.app.innerHTML, /prescience/);
+  a.action('home');
+  const loaded = await resume(a.game());
+  loaded.action('back');
+  loaded.action('back');
+  assert.match(loaded.app.innerHTML, /data-check="r1p5-prescience" checked/);
+  await reach(loaded, 2, 5);
+  assert.match(loaded.app.innerHTML, /data-check="r2p5-prescience"/);
+  assert.doesNotMatch(loaded.app.innerHTML, /data-check="r2p5-prescience" checked/);
+
+  const absent = await resume(await gameWith(['Fremen', 'Emperor'], { started: true }));
+  await reach(absent, 1, 5);
+  assert.doesNotMatch(absent.app.innerHTML, /prescience|Атрейдесы/);
+});
+
+test('first-round Revival can be skipped, with elapsed time and the return position preserved', async () => {
+  const a = await resume(await gameWith(['Fremen', 'Atreides', 'Ecaz'], { started: true }));
+  await reach(a, 1, 4);
+  assert.match(a.app.innerHTML, /data-action="skip-revival"/);
+  assert.match(a.app.innerHTML, /Ecaz.*послов/);
+  a.tick(3000);
+  a.action('skip-revival');
+  assert.equal(a.game().active, '1|5|Fremen|ship');
+  assert.equal(a.game().elapsed['1|4|Fremen|main'], 3000);
+  assert.equal(a.game().elapsed['1|4|Atreides|main'], undefined);
+  assert.equal(a.game().elapsed['1|4|Ecaz|main'], undefined);
+  assert.match(a.app.innerHTML, /data-check="r1p5-prescience"/);
+  a.action('home');
+  const loaded = await resume(a.game());
+  loaded.action('back');
+  assert.equal(loaded.game().active, '1|4|Fremen|main');
+  assert.equal(loaded.clocks.step.textContent, '00:00:03');
+  loaded.action('next');
+  assert.equal(loaded.game().active, '1|4|Atreides|main');
+  loaded.action('skip-revival');
+  loaded.action('back');
+  assert.equal(loaded.game().active, '1|4|Atreides|main');
+  loaded.action('next');
+  loaded.action('next');
+  loaded.action('back');
+  assert.equal(loaded.game().active, '1|4|Ecaz|main');
+  await reach(loaded, 2, 4);
+  assert.doesNotMatch(loaded.app.innerHTML, /data-action="skip-revival"/);
+  assert.match(loaded.app.innerHTML, /Воскресить войск/);
+});
+
+test('Fremen Shipment explains its landing area without a stronghold price selector', async () => {
+  for (const advanced of [false, true]) {
+    const a = await resume(await gameWith(['Fremen', 'Atreides'], {
+      started: true, advanced,
+      values: { 'r1p5Fremen-count': 3, 'r1p5Fremen-destination': 'other' }
+    }));
+    await reach(a, 1, 5);
+    assert.doesNotMatch(a.app.innerHTML, /data-value="r1p5Fremen-destination"/);
+    assert.match(a.app.innerHTML, /Great Flat.*не более двух территорий/);
+    assert.match(a.app.innerHTML, /одну.*территорию/);
+    assert.match(a.app.innerHTML, /data-shipment-cost>0</);
+    assert.equal(a.app.innerHTML.includes('половину высаживаемых войск'), advanced);
+    assert.doesNotMatch(a.app.innerHTML, /No-Field/);
+    a.tick(2000);
+    a.action('next');
+    a.action('back');
+    assert.equal(a.game().values['r1p5Fremen-count'], 3);
+    assert.equal(a.game().values['r1p5Fremen-destination'], 'other');
+    assert.doesNotMatch(a.app.innerHTML, /data-check="r1p5Fremen-ship"/);
+    assert.equal(a.clocks.step.textContent, '00:00:02');
+  }
+});
+
+test('ordinary and Guild Shipment retain the destination selector and prices', async () => {
+  const a = await resume(await gameWith(['Atreides', 'Guild'], {
+    started: true, values: { 'r1p5Atreides-count': 3, 'r1p5Guild-count': 3 }
+  }));
+  await reach(a, 1, 5);
+  assert.match(a.app.innerHTML, /data-value="r1p5Atreides-destination"/);
+  assert.match(a.app.innerHTML, /data-shipment-cost>3</);
+  a.change({ value: 'r1p5Atreides-destination' }, 'other');
+  assert.match(a.app.innerHTML, /data-shipment-cost>6</);
+  a.action('next');
+  a.action('next');
+  assert.match(a.app.innerHTML, /data-value="r1p5Guild-destination"/);
+  assert.match(a.app.innerHTML, /data-shipment-cost>2</);
+  a.change({ value: 'r1p5Guild-destination' }, 'other');
+  assert.match(a.app.innerHTML, /data-shipment-cost>3</);
+});
+
+test('Shipment shows a prominent price card and the correct payment recipient', async () => {
+  for (const guild of [false, true]) {
+    const a = await resume(await gameWith(guild ? ['Atreides', 'Guild'] : ['Atreides', 'Emperor'], {
+      started: true, values: { 'r1p5Atreides-count': 4, 'r1p5Atreides-destination': 'other', 'r1p5Guild-count': 4 }
+    }));
+    await reach(a, 1, 5);
+    assert.match(a.app.innerHTML, /class="timerPanel" aria-label="Стоимость высадки"/);
+    assert.match(a.app.innerHTML, /data-shipment-cost>8</);
+    assert.match(a.app.innerHTML, guild ? /Оплата: Гильдии/ : /Оплата: в банк спайса/);
+    a.change({ value: 'r1p5Atreides-destination' }, 'hold');
+    assert.match(a.app.innerHTML, /data-shipment-cost>4</);
+    a.action('next');
+    a.action('next');
+    if (guild) {
+      assert.match(a.app.innerHTML, /data-shipment-cost>2</);
+      assert.match(a.app.innerHTML, /Оплата: в банк спайса/);
+      assert.doesNotMatch(a.app.innerHTML, /Оплата: Гильдии/);
+    }
+  }
+  const fremen = await resume(await gameWith(['Fremen', 'Guild'], { started: true, values: { 'r1p5Fremen-count': 4 } }));
+  await reach(fremen, 1, 5);
+  assert.match(fremen.app.innerHTML, /data-shipment-cost>0</);
+  assert.match(fremen.app.innerHTML, /Оплата не требуется/);
+  assert.doesNotMatch(fremen.app.innerHTML, /Оплата: Гильдии/);
+});
+
+test('Mentat shows the Fremen special-victory reminder only in round ten', async () => {
+  const a = await resume(await gameWith(['Fremen', 'Ecaz'], { started: true, checks: { 'r10-mentat-Fremen': true } }));
+  for (let round = 1; round <= 10; round++) {
+    await reach(a, round, 8);
+    assert.equal(a.app.innerHTML.includes('В конце 10-го раунда — специальная победа.'), round === 10);
+    assert.match(a.app.innerHTML, /<strong>Ecaz<\/strong>/);
+    assert.doesNotMatch(a.app.innerHTML, /data-check="r\d+-mentat-/);
+    for (const module of ['discovery', 'strong', 'tech']) {
+      assert.match(a.app.innerHTML, new RegExp(`data-check="r${round}p8-${module}"`));
+    }
+    if (round < 10) assert.doesNotMatch(a.app.innerHTML, /В конце 10-го раунда — специальная победа/);
+  }
+  a.action('next');
+  a.action('back');
+  assert.match(a.app.innerHTML, /В конце 10-го раунда — специальная победа/);
+  assert.equal(a.game().checks['r10-mentat-Fremen'], true);
+});
+
+test('round screens omit completion confirmations but retain concrete checklists and Mentat module guidance', async () => {
+  const a = await resume(await gameWith(['Fremen', 'Atreides'], {
+    started: true, checks: { 'r1p8-general': true, 'r1-mentat-Fremen': true, 'r1p5Fremen-ship': true }
+  }));
+  for (let guard = 0; a.game().phase !== 9; guard++) {
+    assert.ok(guard < 50);
+    assert.doesNotMatch(a.app.innerHTML, /Вся стопка обработана|Revival завершён|Высадка завершена или пропущена|Перемещение завершено или пропущено|Все сражения завершены|Весь сбор спайса завершён|Все применимые проверки завершены|Проверено \/ выполнено или неприменимо|Буря перемещена; последствия разрешены/);
+    if (a.game().phase === 1) assert.match(a.app.innerHTML, /data-check="r1p1[AB]-spice-storm"/);
+    if (a.game().phase === 3 && a.app.innerHTML.includes('Bidding — подготовка')) assert.match(a.app.innerHTML, /data-check="r1p3-hands"/);
+    if (a.game().phase === 4) assert.match(a.app.innerHTML, /data-check="r1p4\w+-leader"/);
+    if (a.game().phase === 7) assert.match(a.app.innerHTML, /Контроль Arrakeen/);
+    if (a.game().phase === 8) {
+      assert.match(a.app.innerHTML, /Jacurutu Sietch/);
+      assert.match(a.app.innerHTML, /[Сс]оветниц/);
+      assert.match(a.app.innerHTML, /один игрок.*все три Tech Token/);
+      assert.match(a.app.innerHTML, /Жетоны двух союзников.*складывать нельзя/);
+      for (const module of ['discovery', 'strong', 'tech']) assert.match(a.app.innerHTML, new RegExp(`data-check="r1p8-${module}"`));
+      assert.doesNotMatch(a.app.innerHTML, /data-check="r1p8-general"/);
+    }
+    a.action('next');
+  }
+  assert.equal(a.game().checks['r1p8-general'], true);
+  assert.equal(a.game().checks['r1p5Fremen-ship'], true);
+});
+
+test('Storm guidance distinguishes first-turn dials, Advanced Fremen cards and ordinary later dials', async () => {
+  for (const fremen of [false, true]) {
+    for (const advanced of [false, true]) {
+      const a = await resume(await gameWith(fremen ? ['Atreides', 'Fremen'] : ['Atreides', 'Emperor'], { started: true, advanced }));
+      assert.match(a.app.innerHTML, /Storm Start/);
+      assert.match(a.app.innerHTML, /от 0 до 20/);
+      assert.match(a.app.innerHTML, /против часовой стрелки/);
+      assert.doesNotMatch(a.app.innerHTML, /Storm Cards применяются с учётом раунда/);
+      assert.equal(a.app.innerHTML.includes('Подготовка карты на раунд 2'), fremen && advanced);
+      assert.match(a.app.innerHTML, /Spice Deck.*следующей фазе Spice Blow/);
+      assert.match(a.app.innerHTML, /Imperial Basin/);
+      assert.match(a.app.innerHTML, /Первый игрок/);
+      assert.doesNotMatch(a.app.innerHTML, /data-check=/);
+      await reach(a, 2, 0);
+      if (fremen && advanced) {
+        assert.match(a.app.innerHTML, /Карта бури · Advanced с Фременами/);
+        assert.match(a.app.innerHTML, /не выбирают нужное число/);
+        assert.match(a.app.innerHTML, /Подготовка карты на раунд 3/);
+        assert.match(a.app.innerHTML, /округляя потери вверх/);
+        assert.doesNotMatch(a.app.innerHTML, /от 1 до 3/);
+      } else {
+        assert.match(a.app.innerHTML, /от 1 до 3/);
+        assert.match(a.app.innerHTML, /последними использовали боевые диски/);
+        assert.doesNotMatch(a.app.innerHTML, /Подготовка карты на раунд/);
+      }
+      a.tick(2000);
+      a.action('next');
+      a.action('back');
+      assert.equal(a.game().phase, 0);
+      assert.equal(a.clocks.step.textContent, '00:00:02');
+    }
+  }
+});

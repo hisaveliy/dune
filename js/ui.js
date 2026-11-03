@@ -15,6 +15,6 @@ export const select = (id, opts, d, label) => `<select class="field" data-value=
 export const counter = (id, d, maximum) => `<div class="counter"><button class="tinybtn" data-number="${esc(id)}" data-delta="-1">−</button><b>${v(id, d)}</b><button class="tinybtn" data-number="${esc(id)}" data-delta="1" data-max="${maximum}">+</button></div>`;
 export const panel = (title, txt) => `<div class="panel">${title ? `<div class="section" style="margin-top:0">${title}</div>` : ''}${txt}</div>`;
 export const note = s => `<div class="note">${s}</div>`;
-export const extra = (f, p) => ability[f]?.[p] ? `<div class="rule"><strong>${N[f]}</strong><div class="muted">${ability[f][p]}</div>${p === 8 ? check('r' + state.g.round + '-mentat-' + f, 'Проверено / выполнено или неприменимо') : ''}</div>` : '';
+export const extra = (f, p) => ability[f]?.[p] ? `<div class="rule"><strong>${N[f]}</strong><div class="muted">${ability[f][p]}</div></div>` : '';
 export const allExtra = p => state.g.selected.map(f => extra(f, p)).join('');
 export const foot = (label, act, disabled = false) => `<div class="footer"><button class="button primary" data-action="${act}" ${disabled ? 'disabled' : ''}>${label} →</button></div>`;

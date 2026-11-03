@@ -102,8 +102,13 @@ export function migrateCharityTimeline() {
 }
 export function step(delta) {
   settle();
+  const s = current();
+  if (s.r === 1 && s.p === 4 && delta === 1) delete state.g.values['r1p4-skip-from'];
   let next = state.g.cursor + delta,
       a = timeline();
+  if (delta === -1 && s.r === 1 && s.p === 5 && s.part === 'ship' && s.f === state.g.selected[0] && state.g.values['r1p4-skip-from']) {
+    next = a.findIndex(x => x.r === 1 && x.p === 4 && x.f === state.g.values['r1p4-skip-from']);
+  }
   if (next < 0) return;
 
   if (next >= a.length) {
@@ -122,6 +127,13 @@ export function step(delta) {
   }
 
   persist();
+}
+export function skipRevival() {
+  const s = current();
+  if (s.r !== 1 || s.p !== 4) return;
+  state.g.values['r1p4-skip-from'] = s.f;
+  const next = timeline().findIndex(x => x.r === 1 && x.p === 5);
+  step(next - state.g.cursor);
 }
 export function setupList() {
   const exceptions = [];

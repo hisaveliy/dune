@@ -67,12 +67,9 @@ export function spiceBlow(step) {
       + item('continue', 'Если эффект требует открыть следующую карту, продолжайте обработку этой стопки.');
   }
 
-  const prescience = has('Atreides') ? factionPanel('Atreides', check('r' + step.r + 'p1-prescience', 'Перед открытием карты Атрейдесы могут посмотреть верхнюю карту Spice Deck. В Advanced предвидение показывает одну карту, а не обе будущие карты.')) : '';
   const advisors = has('Bene Gesserit') && state.g.advanced ? factionPanel('Bene Gesserit', check('r' + step.r + 'p1-fighters', 'После завершения всей фазы Spice Blow & Nexus проверьте решение о перевороте советниц в бойцов по правилам Bene Gesserit.')) : '';
   return panel('Spice Blow · стопка ' + step.part, `
-    ${prescience}
     <label>Открытое событие:${select(id + '-type', options, type)}</label>
     ${content}
-    ${check(id + '-done', 'Вся стопка обработана.')}
     ${advisors}`);
 }

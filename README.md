@@ -50,9 +50,11 @@ Charity отображается на одном общем экране. Вво
 
 При загрузке старой партии позиция переносится на соответствующий шаг новой последовательности. Старое персональное время Charity и введённые значения сохраняются; новый общий экран учитывает добавленное на нём время как общее время фазы.
 
+Подсказка предвидения Атрейдесов показывается на первом шаге Shipment & Movement каждого раунда, до действий первого игрока. В первом раунде кнопка «Пропустить Revival» позволяет перейти к Shipment & Movement, если воскрешения не нужны и эффекты конца фазы разрешены. При наличии Ecaz отображается напоминание о размещении послов. Накопленное время сохраняется, а возврат назад ведёт к шагу, с которого Revival пропустили.
+
 ### Источники правил для обновлённых экранов
 
-- [GF9 Dune Rulebook](https://www.gf9games.com/dunegame/wp-content/uploads/Dune-Rulebook.pdf) и [FAQ, ноябрь 2020](https://www.gf9games.com/dune/wp-content/uploads/2020/11/Dune-FAQ-Nov-2020.pdf): Spice Blow, Nexus, Charity, Bene Gesserit, обычные торги и повторный вход после паса.
+- [GF9 Dune Rulebook](https://www.gf9games.com/dunegame/wp-content/uploads/Dune-Rulebook.pdf) и [FAQ, ноябрь 2020](https://www.gf9games.com/dune/wp-content/uploads/2020/11/Dune-FAQ-Nov-2020.pdf): Storm, первая буря, Storm Deck Фременов в Advanced, Spice Blow, Nexus, Charity, Bene Gesserit, обычные торги и повторный вход после паса.
 - [GF9 CHOAM & Richese](https://www.gf9games.com/dune/wp-content/uploads/2021/11/CHOAM-Rulebook-low-res.pdf), стр. 5–8, 10–12: выплаты CHOAM, инфляция, аукционы Richese, Black Market и исключения Tech Tokens.
 - [GF9 Ecaz & Moritani](https://www.gf9games.com/dune/wp-content/uploads/EcazMoritani-Rulebook-LOWRES.pdf), стр. 12–13: Discovery Spice Cards, Great Maker, Hiereg и Smuggler.
 - [GF9 Ixians & Tleilaxu](https://www.gf9games.com/dunegame/wp-content/uploads/2020/09/IxianAndTleilaxuRulebook.pdf): защита Hidden Mobile Stronghold от червей и Spice Production.

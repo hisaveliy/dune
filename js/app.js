@@ -6,7 +6,7 @@ import { ended, statistics } from "./screens/statistics.js";
 import { choamBalance } from "./screens/charity.js";
 import { settle, spent, phaseMs, fmt } from "./timers.js";
 import { copy, persist } from "./storage.js";
-import { activate, current, fresh, key, migrateCharityTimeline, step } from "./game.js";
+import { activate, current, fresh, key, migrateCharityTimeline, skipRevival, step } from "./game.js";
 import { v } from "./ui.js";
 const el = document.getElementById('app');
 
@@ -177,6 +177,11 @@ el.addEventListener('click', evt => {
 
     case 'back':
       step(-1);
+      render();
+      break;
+
+    case 'skip-revival':
+      skipRevival();
       render();
       break;
 
