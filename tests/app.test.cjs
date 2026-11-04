@@ -629,20 +629,20 @@ test('individual starting-card tasks contribute independently to readiness and p
     const ids = [...a.app.innerHTML.matchAll(/data-check="([^"]+)"/g)].map(match => match[1]);
     for (const id of ids.filter(id => !id.endsWith('-treachery'))) a.change({ check: id }, true);
   }
-  assert.match(a.app.innerHTML, /Готово 15 \/ 17/);
+  assert.match(a.app.innerHTML, /Готово 16 \/ 18/);
   assert.match(a.app.innerHTML, /data-action="start" disabled/);
   a.change({ check: 'Harkonnen-treachery' }, true);
-  assert.match(a.app.innerHTML, /Готово 16 \/ 17/);
+  assert.match(a.app.innerHTML, /Готово 17 \/ 18/);
   assert.match(a.app.innerHTML, /data-action="start" disabled/);
   a.click('prep', 'Fremen');
   a.change({ check: 'Fremen-treachery' }, true);
-  assert.match(a.app.innerHTML, /Готово 17 \/ 17/);
+  assert.match(a.app.innerHTML, /Готово 18 \/ 18/);
   assert.doesNotMatch(a.app.innerHTML, /data-action="start" disabled/);
   a.action('settings');
   a.action('create');
   a.action('home');
   const loaded = await resume(a.game());
-  assert.match(loaded.app.innerHTML, /Готово 17 \/ 17/);
+  assert.match(loaded.app.innerHTML, /Готово 18 \/ 18/);
   loaded.click('prep', 'Fremen');
   assert.match(loaded.app.innerHTML, /data-check="Fremen-treachery" checked/);
   loaded.change({ check: 'Fremen-treachery' }, false);
@@ -989,4 +989,89 @@ test('Battle No-Field and alliance guidance is contextual and CHOAM income is Ad
       assert.match(a.app.innerHTML,/Zoal копирует силу лидера/);
     }
   }
+});
+
+test('Traitor preparation is individual for all twelve factions, with deck filtering left in General', async () => {
+  for (const selected of [
+    ['Fremen','Atreides','Harkonnen','Emperor','Guild','Bene Gesserit'],
+    ['Ixians','Tleilaxu','CHOAM','Richese','Ecaz','Moritani']
+  ]) {
+    for (const advanced of [false,true]) {
+      const a=await resume(await gameWith(selected,{advanced}));
+      assert.match(a.app.innerHTML,/data-check="general-traitor-deck"/);
+      assert.match(a.app.innerHTML,/убрать карты всех неучаствующих фракций/);
+      assert.doesNotMatch(a.app.innerHTML,/Раздать Traitor Cards|data-check="general-traitors"/);
+      for (const f of selected) {
+        a.click('prep',f);
+        const html=a.app.innerHTML;
+        assert.equal((html.match(new RegExp('data-check="'+f+'-traitors"','g'))||[]).length,1);
+        if (f === 'Harkonnen') {
+          assert.match(html,/оставить все 4/);
+          assert.doesNotMatch(html,/data-check="Harkonnen-special"/);
+        } else if (f === 'Tleilaxu') {
+          assert.match(html,/Не получать обычные 4 Traitor Cards/);
+          assert.match(html,/остальные фракции выбрали предателей и вернули невыбранные карты/);
+          assert.match(html,/тайно взять 3 верхние карты/);
+          assert.doesNotMatch(html,/data-check="Tleilaxu-special"/);
+        } else {
+          assert.match(html,/Получить 4 Traitor Cards/);
+          assert.match(html,/оставить 1 карту/);
+          assert.match(html,/Остальные 3 вернуть лицом вниз под низ колоды/);
+        }
+        if (f === 'Ecaz') {
+          assert.equal(html.includes('Loyalty'),advanced);
+          if (advanced) assert.match(html,/отложить открыто.*не попадает в общую колоду/);
+        }
+        if (f === 'CHOAM') assert.match(html,advanced ? /замешать его Traitor Card в общую колоду/ : /Auditor не используется: убрать его Traitor Card/);
+      }
+    }
+  }
+});
+
+test('legacy Traitor checks migrate once and keep explicit individual choices and unrelated progress', async () => {
+  for (const dealt of [false,true]) {
+    const legacy=await gameWith(['Fremen','Harkonnen','Tleilaxu','Ecaz'],{
+      checks:{'general-traitors':dealt,'general-board':true,'Harkonnen-special':true,'Tleilaxu-special':false,'Ecaz-traitors':false}
+    });
+    const a=await resume(legacy);
+    assert.equal(a.game().checks['general-traitor-deck'],dealt);
+    assert.equal(a.game().checks['Fremen-traitors'],dealt);
+    assert.equal(a.game().checks['Harkonnen-traitors'],true);
+    assert.equal(a.game().checks['Tleilaxu-traitors'],false);
+    assert.equal(a.game().checks['Ecaz-traitors'],false);
+    assert.equal(a.game().checks['general-board'],true);
+    assert.equal('general-traitors' in a.game().checks,false);
+    assert.equal('Harkonnen-special' in a.game().checks,false);
+    a.click('prep','Fremen');
+    a.change({check:'Fremen-traitors'},!dealt);
+    const loaded=await resume(a.game());
+    assert.equal(loaded.game().checks['Fremen-traitors'],!dealt);
+    assert.equal(loaded.game().checks['general-traitor-deck'],dealt);
+    assert.equal(loaded.game().checks['Ecaz-traitors'],false);
+  }
+});
+
+test('each new Traitor task is required for readiness and completed old preparation stays complete', async () => {
+  const a=await resume(await gameWith(['Fremen','Harkonnen']));
+  for (const tab of ['general','Fremen','Harkonnen']) {
+    a.click('prep',tab);
+    const ids=[...a.app.innerHTML.matchAll(/data-check="([^"]+)"/g)].map(m=>m[1]);
+    for (const id of ids.filter(id=>!id.endsWith('-traitors'))) a.change({check:id},true);
+  }
+  assert.match(a.app.innerHTML,/Готово 16 \/ 18/);
+  assert.match(a.app.innerHTML,/data-action="start" disabled/);
+  a.change({check:'Harkonnen-traitors'},true);
+  assert.match(a.app.innerHTML,/data-action="start" disabled/);
+  a.click('prep','Fremen');
+  a.change({check:'Fremen-traitors'},true);
+  assert.doesNotMatch(a.app.innerHTML,/data-action="start" disabled/);
+  const old=a.game();
+  old.checks['general-traitors']=true;
+  old.checks['Harkonnen-special']=true;
+  delete old.checks['general-traitor-deck'];
+  delete old.checks['Fremen-traitors'];
+  delete old.checks['Harkonnen-traitors'];
+  const loaded=await resume(old);
+  assert.match(loaded.app.innerHTML,/Готово 18 \/ 18/);
+  assert.doesNotMatch(loaded.app.innerHTML,/data-action="start" disabled/);
 });

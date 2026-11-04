@@ -95,8 +95,7 @@ export const startingSetup = {
     "spice": 10,
     "field": 10,
     "reserve": 10,
-    "placement": "Разместить 10 войск в Carthag.",
-    "special": "Сохранить 4 Traitor Cards."
+    "placement": "Разместить 10 войск в Carthag."
   },
   "Emperor": {
     "spice": 10,
@@ -130,15 +129,14 @@ export const startingSetup = {
     "spice": 5,
     "field": 0,
     "reserve": 20,
-    "placement": "Не размещать войска в начале игры; все 20 — в резерве.",
-    "special": "Подготовить 3 Face Dancers после выбора предателей другими фракциями."
+    "placement": "Не размещать войска в начале игры; все 20 — в резерве."
   },
   "CHOAM": {
     "spice": 2,
     "field": 0,
     "reserve": 20,
     "placement": "Стартовых войск на поле нет; все 20 — в резерве.",
-    "special": "Подготовить Inflation Token и компоненты Auditor (Advanced)."
+    "special": "Подготовить Inflation Token."
   },
   "Richese": {
     "spice": 5,
@@ -152,7 +150,7 @@ export const startingSetup = {
     "field": 6,
     "reserve": 14,
     "placement": "Разместить 6 войск в Imperial Basin.",
-    "special": "Подготовить Ambassador Tokens, Duke Vidal и исключение Loyalty/Traitor в Advanced."
+    "special": "Подготовить Ambassador Tokens и Duke Vidal."
   },
   "Moritani": {
     "spice": 12,

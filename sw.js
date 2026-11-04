@@ -1,4 +1,4 @@
-const CACHE = 'dune-companion-v17';
+const CACHE = 'dune-companion-v18';
 const ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./icon.svg", "./css/styles.css", "./js/app.js", "./js/storage.js", "./js/data.js", "./js/ui.js", "./js/game.js", "./js/timers.js", "./js/screens/play.js", "./js/screens/statistics.js", "./js/screens/home.js", "./js/screens/setup.js", "./js/state.js", "./js/charity.js", "./js/screens/charity.js", "./js/screens/spice-blow.js", "./js/screens/bidding.js", "./js/revival.js", "./js/screens/revival.js", "./js/screens/battle.js"];
 self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())));
 self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));

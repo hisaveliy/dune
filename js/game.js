@@ -147,7 +147,7 @@ export function skipRevival() {
 }
 export function setupList() {
   const hasIxians = state.g.selected.includes('Ixians');
-  let a = [['general-board', 'Поле, банк спайса, фишки и ширмы подготовлены.'], ['general-storm', 'Подготовить стартовое положение бури.'], ['general-traitors', 'Раздать Traitor Cards с учётом исключений фракций.'], ['general-spice', 'Подготовить две стопки Spice Deck.']];
+  let a = [['general-board', 'Поле, банк спайса, фишки и ширмы подготовлены.'], ['general-storm', 'Подготовить стартовое положение бури.'], ['general-traitor-deck', 'Подготовить колоду Traitor Cards: убрать карты всех неучаствующих фракций, оставить карты участвующих фракций, включая своих лидеров, и перемешать. До раздачи выполнить стартовые действия из пунктов Traitor Cards выбранных фракций.'], ['general-spice', 'Подготовить две стопки Spice Deck.']];
   if (state.g.modules.discovery) a.push(['general-discovery', 'Подготовить Discovery Tokens.']);
   if (state.g.modules.stronghold) a.push(['general-strongholds', 'Подготовить Stronghold Cards.']);
   if (state.g.modules.tech) a.push(['general-tech', 'Подготовить Tech Tokens.']);
@@ -157,6 +157,12 @@ export function setupList() {
     a.push([f + '-spice', 'Получить ' + x.spice + ' стартового спайса из банка.']);
     a.push([f + '-placement', x.placement]);
     a.push([f + '-reserve', 'Подготовить резерв: ' + x.reserve + ' войск (на поле: ' + x.field + ').']);
+    let traitors = 'Получить 4 Traitor Cards из подготовленной общей колоды, тайно выбрать и оставить 1 карту за ширмой. Остальные 3 вернуть лицом вниз под низ колоды. Можно оставить чужого лидера как предателя или своего, чтобы защитить его от предательства.';
+    if (f === 'Harkonnen') traitors = 'Получить 4 Traitor Cards при общей раздаче и тайно оставить все 4 за ширмой, включая карты своих лидеров. В отличие от обычной раздачи, выбирать одну и возвращать остальные не нужно.';
+    if (f === 'Tleilaxu') traitors = 'Не получать обычные 4 Traitor Cards. После того как остальные фракции выбрали предателей и вернули невыбранные карты, перемешать оставшуюся общую колоду и тайно взять 3 верхние карты. Все 3 оставить за ширмой как Face Dancers, а не обычных предателей. Карты лидеров Тлейлаксу из общей колоды не убираются.';
+    if (f === 'Ecaz' && state.g.advanced) traitors = 'Loyalty · до общей раздачи: случайно выбрать одну Traitor Card своей фракции и отложить открыто перед всеми на всю партию; она не попадает в общую колоду. Перемешать колоду после этого действия. Затем: ' + traitors;
+    if (f === 'CHOAM') traitors = (state.g.advanced ? 'До общей раздачи: подготовить диск лидера Auditor и замешать его Traitor Card в общую колоду. Затем: ' : 'В Basic Auditor не используется: убрать его Traitor Card из колоды до общей раздачи. Затем: ') + traitors;
+    a.push([f + '-traitors', traitors]);
     let treachery;
     if (f === 'Ixians') {
       treachery = 'Получить 1 стартовую Treachery Card в руку: перед общей раздачей возьмите ' + state.g.selected.length + ' карт из колоды (по одной на участвующую фракцию), выберите одну себе, остальные карты перемешайте и раздайте по одной другим игрокам.';
@@ -167,7 +173,7 @@ export function setupList() {
       if (f === 'Richese') treachery += ' Отдельный запас из 10 специальных карт Richese не входит в стартовую руку.';
     }
     a.push([f + '-treachery', treachery]);
-    a.push([f + '-special', x.special]);
+    if (x.special) a.push([f + '-special', x.special]);
   }
 
   return a;
@@ -176,6 +182,17 @@ export function migrateTreacherySetup() {
   if (!('general-treachery' in state.g.checks)) return;
   for (const f of state.g.selected) state.g.checks[f + '-treachery'] ??= state.g.checks['general-treachery'];
   delete state.g.checks['general-treachery'];
+}
+export function migrateTraitorSetup() {
+  const checks = state.g.checks, dealt = checks['general-traitors'];
+  if (dealt !== undefined) checks['general-traitor-deck'] ??= dealt;
+  for (const f of state.g.selected) {
+    const oldSpecial = ['Harkonnen', 'Tleilaxu'].includes(f) ? f + '-special' : null;
+    const completed = oldSpecial && oldSpecial in checks ? checks[oldSpecial] : dealt;
+    if (completed !== undefined) checks[f + '-traitors'] ??= completed;
+    if (oldSpecial) delete checks[oldSpecial];
+  }
+  delete checks['general-traitors'];
 }
 export function activate() {
   let s = current();

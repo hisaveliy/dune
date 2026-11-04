@@ -6,7 +6,7 @@ import { ended, statistics } from "./screens/statistics.js";
 import { choamBalance } from "./screens/charity.js";
 import { settle, spent, phaseMs, fmt } from "./timers.js";
 import { copy, persist } from "./storage.js";
-import { activate, current, fresh, key, migrateTimeline, migrateTreacherySetup, skipInitialRevival, skipRevival, step } from "./game.js";
+import { activate, current, fresh, key, migrateTimeline, migrateTreacherySetup, migrateTraitorSetup, skipInitialRevival, skipRevival, step } from "./game.js";
 import { normalizeRevival } from "./revival.js";
 import { leaderPrice } from "./screens/revival.js";
 import { v } from "./ui.js";
@@ -97,6 +97,7 @@ el.addEventListener('click', evt => {
     state.g = copy(state.library.find(z => z.id === b.dataset.load));
     migrateTimeline();
     migrateTreacherySetup();
+    migrateTraitorSetup();
 
     if (state.g.started && !state.g.finished) {
       skipInitialRevival();
