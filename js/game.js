@@ -16,7 +16,7 @@ export const fresh = () => ({
   },
   checks: {},
   values: {},
-  timelineVersion: 2,
+  timelineVersion: 3,
   cursor: 0,
   started: false,
   finished: false,
@@ -27,12 +27,12 @@ export const fresh = () => ({
   round: 1,
   phase: 0
 });
-export function timeline(legacyCharity = false) {
+export function timeline(version = 3) {
   const a = [];
 
   for (let r = 1; r <= 10; r++) {
     for (let p = 0; p < 9; p++) {
-      if ([4, 5, 7].includes(p) || legacyCharity && p === 2) {
+      if ([4, 5, 7].includes(p) || version < 2 && p === 2) {
         for (const f of state.g.selected) {
           if (p === 5) {
             a.push({
@@ -65,7 +65,7 @@ export function timeline(legacyCharity = false) {
           p,
           part: 'B'
         });
-      } else if (p === 3) {
+      } else if (p === 3 && version < 3) {
         a.push({
           r,
           p,
@@ -94,11 +94,19 @@ export function timeline(legacyCharity = false) {
 }
 export const current = () => timeline()[state.g.cursor];
 export const key = x => [x.r, x.p, x.f || 'shared', x.part].join('|');
-export function migrateCharityTimeline() {
-  if (state.g.timelineVersion === 2) return;
-  const previous = timeline(true)[state.g.cursor];
-  state.g.cursor = timeline().findIndex(s => s.r === previous.r && s.p === previous.p && s.part === previous.part && (s.p === 2 || s.f === previous.f));
-  state.g.timelineVersion = 2;
+export function migrateTimeline() {
+  if (state.g.timelineVersion === 3) return;
+  const previous = timeline(state.g.timelineVersion ?? 1)[state.g.cursor];
+  state.g.cursor = timeline().findIndex(s => s.r === previous.r && s.p === previous.p && ([2, 3].includes(s.p) || s.part === previous.part && s.f === previous.f));
+  state.g.timelineVersion = 3;
+}
+export function skipInitialRevival() {
+  const s = current();
+  if (s.r !== 1 || s.p !== 4 || state.g.values['r1p4-opened']) return;
+  state.g.values['r1p4-skip-from'] = s.f;
+  state.g.cursor = timeline().findIndex(x => x.r === 1 && x.p === 5);
+  state.g.round = 1;
+  state.g.phase = 5;
 }
 export function step(delta) {
   settle();
@@ -118,6 +126,8 @@ export function step(delta) {
     state.page = 'ended';
   } else {
     state.g.cursor = next;
+    if (delta < 0 && current().r === 1 && current().p === 4) state.g.values['r1p4-opened'] = true;
+    if (delta > 0) skipInitialRevival();
     let s = current();
     state.g.round = s.r;
     state.g.phase = s.p;
@@ -136,11 +146,8 @@ export function skipRevival() {
   step(next - state.g.cursor);
 }
 export function setupList() {
-  const exceptions = [];
-  if (state.g.selected.includes('Harkonnen')) exceptions.push('исключение Харконненов');
-  if (state.g.selected.includes('Ixians')) exceptions.push('исключение Иксиан');
-  const treachery = 'Раздать стартовые Treachery Cards' + (exceptions.length ? ', учитывая ' + exceptions.join(' и ') : '') + '.';
-  let a = [['general-board', 'Поле, банк спайса, фишки и ширмы подготовлены.'], ['general-storm', 'Подготовить стартовое положение бури.'], ['general-traitors', 'Раздать Traitor Cards с учётом исключений фракций.'], ['general-treachery', treachery], ['general-spice', 'Подготовить две стопки Spice Deck.']];
+  const hasIxians = state.g.selected.includes('Ixians');
+  let a = [['general-board', 'Поле, банк спайса, фишки и ширмы подготовлены.'], ['general-storm', 'Подготовить стартовое положение бури.'], ['general-traitors', 'Раздать Traitor Cards с учётом исключений фракций.'], ['general-spice', 'Подготовить две стопки Spice Deck.']];
   if (state.g.modules.discovery) a.push(['general-discovery', 'Подготовить Discovery Tokens.']);
   if (state.g.modules.stronghold) a.push(['general-strongholds', 'Подготовить Stronghold Cards.']);
   if (state.g.modules.tech) a.push(['general-tech', 'Подготовить Tech Tokens.']);
@@ -150,10 +157,25 @@ export function setupList() {
     a.push([f + '-spice', 'Получить ' + x.spice + ' стартового спайса из банка.']);
     a.push([f + '-placement', x.placement]);
     a.push([f + '-reserve', 'Подготовить резерв: ' + x.reserve + ' войск (на поле: ' + x.field + ').']);
+    let treachery;
+    if (f === 'Ixians') {
+      treachery = 'Получить 1 стартовую Treachery Card в руку: перед общей раздачей возьмите ' + state.g.selected.length + ' карт из колоды (по одной на участвующую фракцию), выберите одну себе, остальные карты перемешайте и раздайте по одной другим игрокам.';
+    } else if (f === 'Harkonnen') {
+      treachery = 'Получить 2 стартовые Treachery Cards в руку' + (hasIxians ? ': одну из раздачи Иксиан, затем ещё одну возьмите сверху общей колоды.' : ' из общей колоды.');
+    } else {
+      treachery = 'Получить 1 стартовую Treachery Card в руку ' + (hasIxians ? 'из раздачи Иксиан.' : 'из общей колоды.');
+      if (f === 'Richese') treachery += ' Отдельный запас из 10 специальных карт Richese не входит в стартовую руку.';
+    }
+    a.push([f + '-treachery', treachery]);
     a.push([f + '-special', x.special]);
   }
 
   return a;
+}
+export function migrateTreacherySetup() {
+  if (!('general-treachery' in state.g.checks)) return;
+  for (const f of state.g.selected) state.g.checks[f + '-treachery'] ??= state.g.checks['general-treachery'];
+  delete state.g.checks['general-treachery'];
 }
 export function activate() {
   let s = current();

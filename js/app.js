@@ -6,7 +6,9 @@ import { ended, statistics } from "./screens/statistics.js";
 import { choamBalance } from "./screens/charity.js";
 import { settle, spent, phaseMs, fmt } from "./timers.js";
 import { copy, persist } from "./storage.js";
-import { activate, current, fresh, key, migrateCharityTimeline, skipRevival, step } from "./game.js";
+import { activate, current, fresh, key, migrateTimeline, migrateTreacherySetup, skipInitialRevival, skipRevival, step } from "./game.js";
+import { normalizeRevival } from "./revival.js";
+import { leaderPrice } from "./screens/revival.js";
 import { v } from "./ui.js";
 const el = document.getElementById('app');
 
@@ -93,9 +95,12 @@ el.addEventListener('click', evt => {
 
   if (b.dataset.load) {
     state.g = copy(state.library.find(z => z.id === b.dataset.load));
-    migrateCharityTimeline();
+    migrateTimeline();
+    migrateTreacherySetup();
 
     if (state.g.started && !state.g.finished) {
+      skipInitialRevival();
+      if (current().p === 4) normalizeRevival(state.g, current());
       state.page = current().p === 9 ? 'stats' : 'play';
       activate();
     } else state.page = state.g.finished ? 'ended' : 'setup';
@@ -108,6 +113,7 @@ el.addEventListener('click', evt => {
   if (b.dataset.number) {
     let k = b.dataset.number;
     state.g.values[k] = Math.min(Number(b.dataset.max || 100), Math.max(0, Number(v(k, 0)) + Number(b.dataset.delta)));
+    if (state.page === 'play' && current().p === 4) normalizeRevival(state.g, current());
     persist();
     render();
     return;
@@ -210,6 +216,7 @@ el.addEventListener('change', evt => {
 
   if (x.dataset.value) {
     state.g.values[x.dataset.value] = /^r\d+p2CHOAM-stock$/.test(x.dataset.value) && x.value !== '' ? Math.max(0, Math.floor(Number(x.value))) : x.value;
+    if (state.page === 'play' && current().p === 4) normalizeRevival(state.g, current());
     persist();
     render();
     return;
@@ -222,6 +229,13 @@ el.addEventListener('change', evt => {
 });
 el.addEventListener('input', evt => {
   let x = evt.target;
+
+  if (state.g && state.page === 'play' && current().p === 4 && x.dataset.value === 'r' + current().r + 'p4' + current().f + '-leader-price') {
+    state.g.values[x.dataset.value] = x.value;
+    persist();
+    const price = el.querySelector('[data-leader-price]');
+    if (price) price.innerHTML = leaderPrice(current());
+  }
 
   if (state.g && x.dataset.value && /^r\d+p2CHOAM-stock$/.test(x.dataset.value)) {
     state.g.values[x.dataset.value] = x.value === '' ? '' : Math.max(0, Math.floor(Number(x.value)));

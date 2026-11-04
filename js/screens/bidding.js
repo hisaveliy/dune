@@ -4,14 +4,13 @@ import { allExtra, check, note, panel } from "../ui.js";
 export function bidding(step) {
   const base = 'r' + step.r + 'p3';
   const hasRichese = state.g.selected.includes('Richese');
-  const preparation = step.part === 'prepare';
   const blackMarket = hasRichese && state.g.advanced ? note('До объявления размеров рук Richese могут предложить одну карту из своей руки на Black Market. Карта продаётся обычным способом, Once Around или Silent Auction. Если её купили, обычных карт на торги на одну меньше; если ставок нет, карта остаётся в руке Richese, Black Market заканчивается, а обычные торги продолжаются. Оплата идёт Richese, приобретение через Karama запрещено. Карта не раскрывается' + (state.g.selected.includes('Atreides') ? ', но Атрейдесы сохраняют право посмотреть её.' : '.')) : '';
-  let content = preparation ? `
+  let content = `
     ${blackMarket}
     ${check(base + '-hands', 'Определите количество доступных карт и места в руках.')}
     ${note('Каждый объявляет число Treachery Cards в руке. Обычный лимит — 4' + (state.g.selected.includes('Harkonnen') ? ', у Харконненов — 8' : '') + (state.g.selected.includes('CHOAM') ? ', у CHOAM — 5' : '') + '. Полная рука не позволяет участвовать в торгах. Базовое число карт на торги равно числу фракций с местом хотя бы для одной карты; особые способности могут менять состав продажи.')}
     ${hasRichese ? check(base + '-richese', 'Учтите Richese: на одну обычную карту меньше; Richese объявляют, будет их открытая карта из отдельного запаса первой или последней продажей.') : ''}
-    ${check(base + '-cards', 'Выложите количество карт на торги.')}` : '';
+    ${check(base + '-cards', 'Выложите количество карт на торги.')}`;
   content += panel('Обычные торги', `
     <ol>
       <li>Карты продаются по одной, закрыто. Начинает первый игрок по буре с неполной рукой; торги идут вправо.</li>
@@ -22,7 +21,6 @@ export function bidding(step) {
     </ol>`);
   if (hasRichese) {
     content += panel('Richese · особая продажа', `
-      ${preparation ? '' : blackMarket}
       <p>Richese обязаны выставить открытую карту из своего отдельного запаса, пока в нём есть карты, и выбирают Once Around или Silent Auction.${state.g.selected.includes('Ixians') ? ' Порядок этой продажи объявляется до применения аукционной способности Иксиан.' : ''}</p>
       <p><strong>Once Around:</strong> Richese выбирают направление. Начиная с соседа, каждый игрок получает одну возможность повысить ставку или спасовать. Последними Richese повышают ставку и покупают карту либо уступают её максимальной ставке.</p>
       <p><strong>Silent Auction:</strong> все допустимые участники одновременно раскрывают спрятанную ставку, включая 0. Максимальная ставка выигрывает; ничья разрешается по порядку бури.</p>
@@ -30,5 +28,5 @@ export function bidding(step) {
       <p>Покупатель другой фракции платит Richese. За собственную покупку карты из запаса Richese платят ${state.g.selected.includes('Emperor') ? 'Императору' : 'банку'}. Karama не позволяет приобрести эту карту.</p>`);
   }
   content += allExtra(3);
-  return panel(preparation ? 'Bidding — подготовка' : 'Bidding — аукцион', content);
+  return panel('Bidding', content);
 }

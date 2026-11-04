@@ -1,8 +1,9 @@
 import { spiceBlow } from "./spice-blow.js";
 import { charity, inflationMentat } from "./charity.js";
 import { bidding } from "./bidding.js";
+import { revival, ecazAmbassadors } from "./revival.js";
 import { allExtra, c, check, counter, esc, extra, note, panel, select, v } from "../ui.js";
-import { N, P, free } from "../data.js";
+import { N, P } from "../data.js";
 import { state } from "../state.js";
 import { current, key } from "../game.js";
 import { fmt, phaseMs, spent } from "../timers.js";
@@ -52,16 +53,7 @@ export function phaseContent(s) {
 
   if (s.p === 3) return bidding(s);
 
-  if (s.p === 4) {
-    let id = base + f,
-        num = Number(v(id + '-troops', 0)),
-        limit = free[f];
-    const skip = s.r === 1 ? panel('Первый раунд', `
-      ${note('Если в Tanks некого воскрешать и эффекты конца фазы разрешены, можно сразу перейти к Shipment & Movement. При потерях от бури или других событий проведите Revival обычным образом.')}
-      ${state.g.selected.includes('Ecaz') ? note('Ecaz могут разместить послов в конце Revival даже без воскрешений. Перед пропуском разместите послов или откажитесь от этой возможности.') : ''}
-      <button class="button" data-action="skip-revival">Пропустить Revival →</button>`) : '';
-    return `${skip}<h2>${N[f]}</h2>${panel('Revival', `<div class="grid"><div class="metric"><b>${limit}</b><span class="small">Бесплатных войск</span></div><div class="metric"><b>${f === 'Fremen' ? limit : 3}</b><span class="small">Стандартный предел*</span></div></div><div class="section">Воскресить войск</div>${counter(id + '-troops', 0, f === 'Fremen' ? limit : 3)}${note('Базовая цена: ' + (f === 'Fremen' ? 0 : Math.max(0, num - limit) * 2) + ' спайса. *Способности, союзники и карты могут менять расчёт. Для Фременов обычная платная докупка не предусмотрена.')}${check(id + '-leader', 'Лидеры, элитные войска и исключения проверены.')}`)}${extra(f, 4)}`;
-  }
+  if (s.p === 4) return revival(s);
 
   if (s.p === 5) {
     let id = base + f;
@@ -77,7 +69,7 @@ export function phaseContent(s) {
       const payment = f === 'Fremen' ? 'Оплата не требуется · бесплатная высадка' : state.g.selected.includes('Guild') && f !== 'Guild' ? 'Оплата: Гильдии' : 'Оплата: в банк спайса';
       const priceCard = `<div class="timerPanel" aria-label="Стоимость высадки"><div class="small">ЦЕНА ВЫСАДКИ${f === 'Fremen' ? '' : ' · БАЗОВАЯ'}</div><div class="timer"><output data-shipment-cost>${cost}</output> спайса</div><p>${payment}</p></div>`;
       const restrictions = f === 'Fremen' ? 'Соблюдайте ограничения присутствия фракций. ' + (state.g.advanced ? 'В Advanced разрешена высадка в допустимый сектор под бурей: отправьте в Tanks половину высаживаемых войск, округляя потери вверх. Это исключение не разрешает обычное движение под бурей.' : 'В Basic высадка в сектор под бурей запрещена.') : 'Учитывайте специальные виды высадки, No-Field, союзников и ограничения поля.';
-      return `${prescience}<h2>${N[f]}</h2>${panel('Shipment', `${landing}<div class="section">Количество войск</div>${counter(id + '-count', 0, 20)}${priceCard}${note(restrictions)}`)}${extra(f, 5)}`;
+      return `${s.r === 1 && f === state.g.selected[0] && state.g.selected.includes('Ecaz') ? ecazAmbassadors() : ''}${prescience}<h2>${N[f]}</h2>${panel('Shipment', `${landing}<div class="section">Количество войск</div>${counter(id + '-count', 0, 20)}${priceCard}${note(restrictions)}`)}${extra(f, 5)}`;
     }
 
     return `<h2>${N[f]}</h2>${panel('Movement', `<p>Движение обычно бесплатно. Проверьте дальность, орнитоптеры, бурю и специальные способности.</p>`)}${extra(f, 5)}`;

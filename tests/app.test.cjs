@@ -222,7 +222,8 @@ async function resume(game) {
 async function reach(a, round, phase) {
   for (let guard = 0; a.game().round !== round || a.game().phase !== phase; guard++) {
     assert.ok(guard < 500, `Reach round ${round}, phase ${phase}`);
-    a.action('next');
+    if (round === 1 && phase === 4 && a.game().round === 1 && a.game().phase === 5) a.action('back');
+    else a.action('next');
   }
 }
 
@@ -232,8 +233,8 @@ test('settings remain readable when enabled; preparation keeps completed checkli
     a.action('settings');
     assert.doesNotMatch(a.app.innerHTML, /class="completed"/);
     a.action('setup');
-    assert.equal(a.app.innerHTML.includes('исключение Иксиан'), selected.includes('Ixians'));
-    assert.equal(a.app.innerHTML.includes('исключение Харконненов'), selected.includes('Harkonnen'));
+    assert.doesNotMatch(a.app.innerHTML, /data-check="general-treachery"/);
+    assert.doesNotMatch(a.app.innerHTML, /исключение Иксиан|исключение Харконненов/);
     a.change({ check: 'general-board' }, true);
     assert.match(a.app.innerHTML, /class="completed">Поле/);
   }
@@ -325,13 +326,13 @@ test('Bidding preparation has actual tasks, normal auction rules and Richese exc
     assert.equal(a.app.innerHTML.includes('Black Market'), richese);
     if (richese) assert.ok(a.app.innerHTML.indexOf('Black Market') < a.app.innerHTML.indexOf('data-check="r1p3-hands"'));
     a.action('next');
-    assert.match(a.app.innerHTML, /Bidding — аукцион/);
+    assert.equal(a.game().phase, 5);
     assert.doesNotMatch(a.app.innerHTML, /Этап торгов завершён/);
   }
 });
 
 test('legacy Charity cursors migrate once while preserving historic player time and inputs', async () => {
-  for (const [cursor, expectedCursor, phase] of [[33, 28, 2], [35, 29, 3], [55, 49, 9]]) {
+  for (const [cursor, expectedCursor, phase] of [[33, 27, 2], [35, 28, 3], [55, 47, 9]]) {
     const legacy = await gameWith(['Fremen', 'Atreides', 'Harkonnen', 'Emperor'], {
       started: true, cursor, round: 2, phase,
       values: { 'r2p2Atreides-bracket': '1' },
@@ -340,7 +341,7 @@ test('legacy Charity cursors migrate once while preserving historic player time 
     delete legacy.timelineVersion;
     const a = await resume(legacy);
     assert.equal(a.game().cursor, expectedCursor);
-    assert.equal(a.game().timelineVersion, 2);
+    assert.equal(a.game().timelineVersion, 3);
     assert.deepEqual(a.game().elapsed, legacy.elapsed);
     assert.equal(a.game().values['r2p2Atreides-bracket'], '1');
     if (phase !== 9) a.action('home');
@@ -540,8 +541,8 @@ test('round screens omit completion confirmations but retain concrete checklists
     assert.ok(guard < 50);
     assert.doesNotMatch(a.app.innerHTML, /Вся стопка обработана|Revival завершён|Высадка завершена или пропущена|Перемещение завершено или пропущено|Все сражения завершены|Весь сбор спайса завершён|Все применимые проверки завершены|Проверено \/ выполнено или неприменимо|Буря перемещена; последствия разрешены/);
     if (a.game().phase === 1) assert.match(a.app.innerHTML, /data-check="r1p1[AB]-spice-storm"/);
-    if (a.game().phase === 3 && a.app.innerHTML.includes('Bidding — подготовка')) assert.match(a.app.innerHTML, /data-check="r1p3-hands"/);
-    if (a.game().phase === 4) assert.match(a.app.innerHTML, /data-check="r1p4\w+-leader"/);
+    if (a.game().phase === 3) assert.match(a.app.innerHTML, /data-check="r1p3-hands"/);
+    if (a.game().phase === 4) assert.match(a.app.innerHTML, /ЦЕНА ВОСКРЕШЕНИЯ ВОЙСК/);
     if (a.game().phase === 7) assert.match(a.app.innerHTML, /Контроль Arrakeen/);
     if (a.game().phase === 8) {
       assert.match(a.app.innerHTML, /Jacurutu Sietch/);
@@ -589,4 +590,258 @@ test('Storm guidance distinguishes first-turn dials, Advanced Fremen cards and o
       assert.equal(a.clocks.step.textContent, '00:00:02');
     }
   }
+});
+
+test('starting Treachery is a separate faction task with exact card counts and the Ixian procedure', async () => {
+  const groups = [
+    ['Fremen', 'Atreides', 'Harkonnen', 'Guild', 'Ixians', 'Richese'],
+    ['Emperor', 'Bene Gesserit', 'Tleilaxu', 'CHOAM', 'Ecaz', 'Moritani']
+  ];
+  for (const selected of groups) {
+    const a = await resume(await gameWith(selected));
+    assert.doesNotMatch(a.app.innerHTML, /data-check="general-treachery"/);
+    assert.doesNotMatch(a.app.innerHTML, /стартовые Treachery/);
+    for (const faction of selected) {
+      a.click('prep', faction);
+      const matches = [...a.app.innerHTML.matchAll(/data-check="([^"]+-treachery)"/g)];
+      assert.deepEqual(matches.map(match => match[1]), [faction + '-treachery']);
+      assert.match(a.app.innerHTML, faction === 'Harkonnen' ? /Получить 2 стартовые Treachery Cards/ : /Получить 1 стартовую Treachery Card/);
+      if (faction === 'Ixians') {
+        assert.match(a.app.innerHTML, /возьмите 6 карт/);
+        assert.match(a.app.innerHTML, /выберите одну/);
+        assert.match(a.app.innerHTML, /остальные.*перемешайте.*раздайте/);
+      } else if (selected.includes('Ixians')) {
+        assert.match(a.app.innerHTML, /раздачи Иксиан/);
+        if (faction === 'Harkonnen') assert.match(a.app.innerHTML, /ещё одну.*сверху.*колоды/);
+      } else {
+        assert.doesNotMatch(a.app.innerHTML, /Иксиан/);
+      }
+      if (faction === 'Richese') assert.match(a.app.innerHTML, /10 специальных карт.*не входит в стартовую руку/);
+      if (faction === 'Harkonnen') assert.equal((a.app.innerHTML.match(/2 стартовые Treachery Cards/g) || []).length, 1);
+    }
+  }
+});
+
+test('individual starting-card tasks contribute independently to readiness and persist on reload', async () => {
+  const a = await resume(await gameWith(['Fremen', 'Harkonnen']));
+  for (const tab of ['general', 'Fremen', 'Harkonnen']) {
+    a.click('prep', tab);
+    const ids = [...a.app.innerHTML.matchAll(/data-check="([^"]+)"/g)].map(match => match[1]);
+    for (const id of ids.filter(id => !id.endsWith('-treachery'))) a.change({ check: id }, true);
+  }
+  assert.match(a.app.innerHTML, /Готово 15 \/ 17/);
+  assert.match(a.app.innerHTML, /data-action="start" disabled/);
+  a.change({ check: 'Harkonnen-treachery' }, true);
+  assert.match(a.app.innerHTML, /Готово 16 \/ 17/);
+  assert.match(a.app.innerHTML, /data-action="start" disabled/);
+  a.click('prep', 'Fremen');
+  a.change({ check: 'Fremen-treachery' }, true);
+  assert.match(a.app.innerHTML, /Готово 17 \/ 17/);
+  assert.doesNotMatch(a.app.innerHTML, /data-action="start" disabled/);
+  a.action('settings');
+  a.action('create');
+  a.action('home');
+  const loaded = await resume(a.game());
+  assert.match(loaded.app.innerHTML, /Готово 17 \/ 17/);
+  loaded.click('prep', 'Fremen');
+  assert.match(loaded.app.innerHTML, /data-check="Fremen-treachery" checked/);
+  loaded.change({ check: 'Fremen-treachery' }, false);
+  assert.match(loaded.app.innerHTML, /data-action="start" disabled/);
+  loaded.click('prep', 'Harkonnen');
+  assert.match(loaded.app.innerHTML, /data-check="Harkonnen-treachery" checked/);
+});
+
+test('completed legacy general Treachery transfers once without overwriting individual choices', async () => {
+  for (const dealt of [false, true]) {
+    const legacy = await gameWith(['Fremen', 'Harkonnen'], {
+      checks: { 'general-treachery': dealt, 'general-board': true, 'Harkonnen-treachery': false }
+    });
+    const a = await resume(legacy);
+    assert.equal(a.game().checks['Fremen-treachery'], dealt);
+    assert.equal(a.game().checks['Harkonnen-treachery'], false);
+    assert.equal(a.game().checks['general-board'], true);
+    a.click('prep', 'Fremen');
+    a.change({ check: 'Fremen-treachery' }, !dealt);
+    a.action('settings');
+    a.action('create');
+    a.action('home');
+    const loaded = await resume(a.game());
+    assert.equal(loaded.game().checks['Fremen-treachery'], !dealt);
+    assert.equal(loaded.game().checks['Harkonnen-treachery'], false);
+  }
+});
+
+test('Bidding is one screen between Charity and Revival, retaining preparation checks and time', async () => {
+  const a = await resume(await gameWith(['Atreides', 'Richese'], { started: true }));
+  await reach(a, 2, 2);
+  a.action('next');
+  assert.equal(a.game().active, '2|3|shared|main');
+  assert.match(a.app.innerHTML, /data-check="r2p3-hands"/);
+  assert.match(a.app.innerHTML, /Обычные торги/);
+  assert.match(a.app.innerHTML, /Once Around/);
+  assert.match(a.app.innerHTML, /Black Market/);
+  a.change({ check: 'r2p3-hands' }, true);
+  a.change({ check: 'r2p3-cards' }, true);
+  a.tick(3000);
+  a.action('next');
+  assert.equal(a.game().phase, 4);
+  a.action('back');
+  assert.equal(a.game().active, '2|3|shared|main');
+  assert.equal(a.clocks.step.textContent, '00:00:03');
+  assert.match(a.app.innerHTML, /data-check="r2p3-hands" checked/);
+  assert.match(a.app.innerHTML, /data-check="r2p3-cards" checked/);
+  a.action('back');
+  assert.equal(a.game().phase, 2);
+});
+
+test('both old Bidding steps and subsequent positions migrate from timeline versions one and two', async () => {
+  for (const [version, cursor, target, phase] of [[1,35,28,3],[1,36,28,3],[2,29,28,3],[2,30,28,3],[1,37,29,4],[2,31,29,4]]) {
+    const legacy = await gameWith(['Fremen','Atreides','Harkonnen','Emperor'], {
+      started:true, timelineVersion:version, cursor, round:2, phase,
+      checks:{'r2p3-hands':true,'r2p3-cards':true},
+      elapsed:{'2|3|shared|prepare':3000,'2|3|shared|auction':5000}
+    });
+    const a = await resume(legacy);
+    assert.equal(a.game().timelineVersion,3);
+    assert.equal(a.game().cursor,target);
+    assert.deepEqual(a.game().elapsed,legacy.elapsed);
+    if (phase === 4) a.action('back');
+    assert.equal(a.game().active,'2|3|shared|main');
+    assert.equal(a.clocks.step.textContent,'00:00:08');
+    assert.match(a.app.innerHTML,/data-check="r2p3-cards" checked/);
+    a.tick(2000);
+    a.action('home');
+    const loaded = await resume(a.game());
+    assert.equal(loaded.game().cursor,28);
+    assert.equal(loaded.clocks.step.textContent,'00:00:10');
+    assert.equal(loaded.game().elapsed['2|3|shared|prepare'],3000);
+    assert.equal(loaded.game().elapsed['2|3|shared|auction'],5000);
+    loaded.action('next');
+    assert.equal(loaded.game().phase,4);
+  }
+});
+
+function output(a, attribute) {
+  return a.app.innerHTML.match(new RegExp('<output ' + attribute + '>([^<]+)</output>'))?.[1];
+}
+
+test('round one skips Revival by default and old saves retain history and manual access', async () => {
+  const a = await resume(await gameWith(['Atreides', 'Ecaz'], { started: true }));
+  await reach(a, 1, 3);
+  a.tick(2000);
+  a.action('next');
+  assert.equal(a.game().active, '1|5|Atreides|ship');
+  assert.match(a.app.innerHTML, /Ecaz · конец Revival/);
+  assert.equal(Object.keys(a.game().elapsed).some(k => k.includes('|4|')), false);
+  a.action('back');
+  assert.equal(a.game().active, '1|4|Atreides|main');
+  a.tick(3000);
+  const manuallyOpened = await resume(a.game());
+  assert.equal(manuallyOpened.game().active, '1|4|Atreides|main');
+  assert.equal(manuallyOpened.clocks.step.textContent, '00:00:03');
+  const legacy = a.game();
+  delete legacy.values['r1p4-opened'];
+  legacy.values['r1p4Atreides-troops'] = 3;
+  const loaded = await resume(legacy);
+  assert.equal(loaded.game().active, '1|5|Atreides|ship');
+  assert.equal(loaded.game().elapsed['1|4|Atreides|main'], 3000);
+  loaded.action('back');
+  assert.equal(output(loaded, 'data-revival-cost'), '2');
+});
+
+test('all twelve factions have their own free allowance, force cap and visible Revival price', async () => {
+  const cases = [
+    ['Atreides',2,3,2], ['Harkonnen',2,3,2], ['Fremen',3,3,0],
+    ['Emperor',1,3,4], ['Guild',1,3,4], ['Bene Gesserit',1,3,4],
+    ['Ixians',1,3,4], ['Tleilaxu',2,20,1], ['CHOAM',0,20,3],
+    ['Richese',2,3,2], ['Ecaz',2,3,2], ['Moritani',2,3,2]
+  ];
+  for (const [f, allowance, cap, cost] of cases) {
+    const a = await resume(await gameWith([f, f === 'Guild' ? 'Atreides' : 'Guild'], { started: true }));
+    await reach(a, 2, 4);
+    const id = 'r2p4' + f;
+    assert.match(a.app.innerHTML, new RegExp('<b>' + allowance + '</b><span class="small">Бесплатных войск'));
+    assert.match(a.app.innerHTML, new RegExp('data-number="' + id + '-troops" data-delta="1" data-max="' + cap + '"'));
+    for (let i=0; i<3; i++) a.click('delta', '1');
+    assert.equal(output(a, 'data-revival-cost'), String(cost), f);
+    assert.match(a.app.innerHTML, /все 5 ваших лидеров/);
+    assert.doesNotMatch(a.app.innerHTML, /Лидеры, элитные войска и исключения проверены/);
+    if (f === 'Fremen') assert.match(a.app.innerHTML, /не более одного Fedaykin/);
+    if (f === 'Emperor') assert.match(a.app.innerHTML, /не более одного Sardaukar/);
+    if (f === 'Ecaz') assert.match(a.app.innerHTML, /Duke Vidal/);
+    if (f === 'CHOAM') assert.match(a.app.innerHTML, /Auditor/);
+  }
+});
+
+test('Tleilaxu permission and ally choices change Revival caps, prices and recipients', async () => {
+  const a = await resume(await gameWith(['Fremen','Tleilaxu','Emperor'], { started:true }));
+  await reach(a, 2, 4);
+  const id = 'r2p4Fremen';
+  a.change({value:id + '-troops'}, '5');
+  assert.equal(a.game().values[id + '-troops'],3);
+  a.change({value:id + '-permission'}, 'yes');
+  a.change({value:id + '-troops'}, '5');
+  assert.equal(output(a,'data-revival-cost'),'4');
+  assert.match(a.app.innerHTML,/Оплата: Тлейлаксу/);
+  a.change({value:id + '-ally'}, 'Tleilaxu');
+  assert.equal(output(a,'data-revival-cost'),'2');
+  a.change({value:id + '-ally'}, 'Emperor');
+  a.change({value:id + '-emperor'}, '3');
+  assert.equal(output(a,'data-revival-cost'),'4');
+  assert.equal(output(a,'data-emperor-revival-cost'),'6');
+  a.change({value:id + '-permission'}, 'no');
+  assert.equal(a.game().values[id + '-troops'],3);
+  assert.equal(output(a,'data-revival-cost'),'0');
+  const loaded = await resume(a.game());
+  assert.equal(output(loaded,'data-emperor-revival-cost'),'6');
+  loaded.action('next');
+  assert.equal(output(loaded,'data-revival-cost'),'0');
+  loaded.change({value:'r2p4Tleilaxu-troops'},'20');
+  assert.equal(output(loaded,'data-revival-cost'),'18');
+});
+
+test('Ixian mixed forces and rounded allied leader costs do not use the ordinary force rate', async () => {
+  const a = await resume(await gameWith(['Ixians','Tleilaxu','Emperor'], { started:true }));
+  await reach(a,2,4);
+  const id='r2p4Ixians';
+  a.change({value:id+'-troops'},'3');
+  a.change({value:id+'-cyborgs'},'2');
+  assert.equal(output(a,'data-revival-cost'),'5');
+  a.change({value:id+'-ally'},'Tleilaxu');
+  assert.equal(output(a,'data-revival-cost'),'3');
+  a.change({value:id+'-leader-type'},'normal');
+  assert.equal(output(a,'data-leader-revival-cost'),'—');
+  a.change({value:id+'-leader-price'},'5');
+  assert.equal(output(a,'data-leader-revival-cost'),'3');
+  a.input({value:id+'-leader-price'},'7');
+  assert.equal(a.game().values[id+'-leader-price'],'7');
+  a.action('pause');
+  assert.equal(output(a,'data-leader-revival-cost'),'4');
+  a.change({value:id+'-leader-type'},'early');
+  a.change({value:id+'-leader-price'},'0');
+  assert.equal(output(a,'data-leader-revival-cost'),'0');
+  a.change({value:id+'-ally'},'Emperor');
+  a.change({value:id+'-emperor'},'3');
+  a.change({value:id+'-emperor-cyborgs'},'2');
+  assert.equal(output(a,'data-emperor-revival-cost'),'8');
+  a.change({value:id+'-troops'},'0');
+  assert.equal(a.game().values[id+'-cyborgs'],0);
+});
+
+test('leader exceptions, unlimited CHOAM revival and disabled alliances survive save/load', async () => {
+  for (const [f, type, amount] of [['Ecaz','vidal','5'],['Tleilaxu','zoal','2']]) {
+    const a=await resume(await gameWith([f,'Guild'],{started:true}));
+    await reach(a,2,4);
+    a.change({value:'r2p4'+f+'-leader-type'},type);
+    assert.equal(output(a,'data-leader-revival-cost'),amount);
+    const loaded=await resume(a.game());
+    assert.equal(output(loaded,'data-leader-revival-cost'),amount);
+  }
+  const a=await resume(await gameWith(['CHOAM','Fremen','Tleilaxu'],{started:true,alliances:false}));
+  await reach(a,2,4);
+  assert.doesNotMatch(a.app.innerHTML,/data-value="r2p4CHOAM-ally"/);
+  a.change({value:'r2p4CHOAM-troops'},'20');
+  a.change({value:'r2p4CHOAM-ally'},'Fremen');
+  assert.equal(output(a,'data-revival-cost'),'20');
+  assert.match(a.app.innerHTML,/Auditor/);
 });

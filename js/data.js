@@ -39,14 +39,12 @@ export const ability = {
   },
   Fremen: {
     1: 'Шай-Хулуд, перемещение червём, Nexus.',
-    4: 'Обычно 3 бесплатных войска; обычная платная докупка недоступна.',
     5: 'Особая бесплатная высадка и дальность движения.',
     6: 'Fedaykin и исключения Advanced.',
     8: 'В конце 10-го раунда — специальная победа.'
   },
   Emperor: {
     3: 'Получает обычные платежи аукциона.',
-    4: 'Воскрешение и помощь союзнику.',
     6: 'Sardaukar.'
   },
   Guild: {
@@ -65,14 +63,12 @@ export const ability = {
     5: 'Hidden Mobile Stronghold, Suboid и Cyborg.'
   },
   Tleilaxu: {
-    4: 'Особые лимиты Revival и платежи; отдельно проверьте лидеров.',
     6: 'Face Dancers и особые эффекты.',
     8: 'Проверить связанные с Face Dancers эффекты.'
   },
   CHOAM: {
     2: 'До выплат получает 2 спайса за участвующую фракцию.',
     3: 'Специальные свойства Treachery Cards.',
-    4: 'Базовое бесплатное воскрешение — 0.',
     8: 'Inflation Token.'
   },
   Richese: {
@@ -80,7 +76,6 @@ export const ability = {
     5: 'No-Field Tokens.'
   },
   Ecaz: {
-    4: 'Размещение Ambassador Tokens.',
     6: 'Ambassadors и Duke Vidal.',
     7: 'Особые правила союзного сбора спайса.',
     8: 'При подходящем совместном контроле 3 крепостей — особая союзная победа.'
@@ -111,7 +106,7 @@ export const startingSetup = {
     "field": 10,
     "reserve": 10,
     "placement": "Разместить 10 войск в Carthag.",
-    "special": "Сохранить 4 Traitor Cards и получить 2 стартовые Treachery Cards."
+    "special": "Сохранить 4 Traitor Cards."
   },
   "Emperor": {
     "spice": 10,
@@ -139,7 +134,7 @@ export const startingSetup = {
     "field": 6,
     "reserve": 14,
     "placement": "Поставить 3 Cyborg и 3 Suboid внутрь Hidden Mobile Stronghold; сектор крепости установить после начальной бури.",
-    "special": "Подготовить оставшиеся войска и особую стартовую раздачу Treachery Cards."
+    "special": "Подготовить оставшиеся войска."
   },
   "Tleilaxu": {
     "spice": 5,
