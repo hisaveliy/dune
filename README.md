@@ -25,6 +25,7 @@
 - `js/ui.js` — общие элементы интерфейса: кнопки, чекбоксы, поля и панели.
 - `js/screens/` — главная, подготовка, игровой экран и статистика.
 - `js/screens/spice-blow.js`, `charity.js`, `bidding.js` — события Spice Blow, общий экран Charity и правила торгов.
+- `js/screens/battle.js` — боевые преимущества выбранных фракций с учётом противника и Basic/Advanced; отдельные напоминания об эффектах Тлейлаксу и CHOAM вне выбранной пары.
 - `manifest.webmanifest` — метаданные устанавливаемого веб-приложения.
 - `sw.js` — базовый offline cache (после первого открытия через HTTPS).
 - `icon.svg` — значок.
@@ -62,6 +63,7 @@ Revival показывает отдельные цены войск и выбр�
 - [GF9 Ecaz & Moritani](https://www.gf9games.com/dune/wp-content/uploads/EcazMoritani-Rulebook-LOWRES.pdf), стр. 12–13: Discovery Spice Cards, Great Maker, Hiereg и Smuggler.
 - [GF9 Ixians & Tleilaxu](https://www.gf9games.com/dunegame/wp-content/uploads/2020/09/IxianAndTleilaxuRulebook.pdf): защита Hidden Mobile Stronghold от червей и Spice Production.
 - Revival: базовая книга, стр. 9, 16–19; FAQ, стр. 2, 5–6; Ixians & Tleilaxu, стр. 6–9; CHOAM & Richese, стр. 7–8; Ecaz & Moritani, стр. 7–8.
+- Battle: базовая книга, стр. 13–19; FAQ 2020, стр. 3, 6; Ixians & Tleilaxu, стр. 6–11; CHOAM & Richese, стр. 6, 8; Ecaz & Moritani, стр. 4–9, 15. Для Occupy Ecaz используется округление вниз из примера FAQ на стр. 15, уточняющего противоречивый текст основной способности на стр. 8. Подсказки не ведут скрытый состав рук, текущие альянсы, погибшие войска и использование разовых способностей автоматически.
 
 ### Ограничения
 

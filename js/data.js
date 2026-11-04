@@ -31,21 +31,17 @@ export const free = {
 export const ability = {
   Atreides: {
     3: 'Просмотр продаваемой Treachery Card.',
-    6: 'Предвидение боевого плана.'
   },
   Harkonnen: {
     3: 'Лимит карт до 8; дополнительное получение после покупки.',
-    6: 'Traitor Cards и возможный захват лидера.'
   },
   Fremen: {
     1: 'Шай-Хулуд, перемещение червём, Nexus.',
     5: 'Особая бесплатная высадка и дальность движения.',
-    6: 'Fedaykin и исключения Advanced.',
     8: 'В конце 10-го раунда — специальная победа.'
   },
   Emperor: {
     3: 'Получает обычные платежи аукциона.',
-    6: 'Sardaukar.'
   },
   Guild: {
     5: 'Специальные высадки, скидки, порядок хода.',
@@ -54,16 +50,13 @@ export const ability = {
   'Bene Gesserit': {
     2: 'Особое Charity в Advanced.',
     5: 'Правила Advisor и совместного присутствия.',
-    6: 'Voice и особенности сражения.',
     8: 'Проверить тайное предсказание в момент подходящей победы.'
   },
   Ixians: {
     0: 'Hidden Mobile Stronghold.',
-    3: 'Особые правила аукциона.',
     5: 'Hidden Mobile Stronghold, Suboid и Cyborg.'
   },
   Tleilaxu: {
-    6: 'Face Dancers и особые эффекты.',
     8: 'Проверить связанные с Face Dancers эффекты.'
   },
   CHOAM: {
@@ -72,18 +65,15 @@ export const ability = {
     8: 'Inflation Token.'
   },
   Richese: {
-    3: 'Специальная продажа и вид аукциона.',
     5: 'No-Field Tokens.'
   },
   Ecaz: {
-    6: 'Ambassadors и Duke Vidal.',
     7: 'Особые правила союзного сбора спайса.',
     8: 'При подходящем совместном контроле 3 крепостей — особая союзная победа.'
   },
   Moritani: {
     1: 'Особые взаимодействия с червями.',
     5: 'Terror Tokens и их эффекты.',
-    6: 'Terror Tokens и боевые исключения.'
   }
 };
 export const startingSetup = {

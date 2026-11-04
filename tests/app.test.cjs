@@ -845,3 +845,148 @@ test('leader exceptions, unlimited CHOAM revival and disabled alliances survive 
   assert.equal(output(a,'data-revival-cost'),'20');
   assert.match(a.app.innerHTML,/Auditor/);
 });
+
+test('Bidding faction guidance follows participants, Advanced and alliances without adding steps or confirmations', async () => {
+  for (const selected of [['Atreides','Guild'],['Ixians','Atreides'],['Richese','Guild'],['Ixians','Richese','Atreides']]) {
+    for (const advanced of [false,true]) {
+      for (const alliances of [false,true]) {
+        const a = await resume(await gameWith(selected,{started:true,advanced,alliances}));
+        await reach(a,1,3);
+        const html = a.app.innerHTML;
+        const ix = selected.includes('Ixians'), richese = selected.includes('Richese');
+        assert.equal(html.includes('Иксиане · подготовка обычных торгов'),ix);
+        assert.equal(html.includes('Иксиане · Technology'),ix && advanced);
+        assert.equal(html.includes('Иксиане · бонус союзнику'),ix && alliances);
+        assert.equal(html.includes('Richese · особая продажа'),richese);
+        assert.equal(html.includes('Black Market'),richese && advanced);
+        assert.equal(html.includes('Из отдельного запаса так передавать карты нельзя'),richese && alliances);
+        assert.doesNotMatch(html,/Особые правила аукциона\.|Специальная продажа и вид аукциона\./);
+        assert.equal([...html.matchAll(/data-check=/g)].length,richese ? 3 : 2);
+        if (ix) {
+          assert.ok(html.indexOf('Иксиане · подготовка обычных торгов') < html.indexOf('data-check="r1p3-cards"'));
+          assert.match(html,/на верх или под низ общей колоды/);
+          assert.match(html,/Эта карта не достаётся Иксианам в руку/);
+          if (richese) assert.match(html,/сначала полностью проведите эту продажу, затем примените способность Иксиан/);
+          if (advanced && selected.includes('Atreides')) assert.match(html,/до того как Атрейдесы её посмотрят/);
+        }
+        a.tick(2000);
+        a.action('next');
+        assert.equal(a.game().phase,5);
+        assert.equal(a.game().elapsed['1|3|shared|main'],2000);
+      }
+    }
+  }
+});
+
+test('Movement explains faction ranges and conditional modifiers without changing Shipment or navigation', async () => {
+  const cases = [
+    ['Fremen',true,true,'2'], ['Fremen',false,false,'2'],
+    ['Ixians',true,true,'1 / 2'], ['Richese',true,true,'1'],
+    ['Bene Gesserit',true,true,'1'], ['Bene Gesserit',false,false,'1'],
+    ['CHOAM',true,false,'1'], ['Atreides',true,false,'1'], ['Moritani',true,true,'1']
+  ];
+  for (const [f,advanced,discovery,range] of cases) {
+    const a = await resume(await gameWith([f,'Guild'],{
+      started:true, advanced, modules:{discovery,stronghold:true,tech:true}
+    }));
+    await reach(a,1,5);
+    assert.match(a.app.innerHTML,/data-shipment-cost/);
+    a.action('next');
+    const html = a.app.innerHTML;
+    assert.equal(a.game().active,'1|5|'+f+'|move');
+    assert.ok(html.includes('<b>'+range+'</b><span class="small">Территорий пешком'));
+    assert.match(html,/после Shipment/);
+    assert.match(html,/Только что высаженные туда войска тоже дают доступ/);
+    assert.match(html,/Исходная территория не входит в расстояние/);
+    assert.match(html,/Hajr даёт дополнительное перемещение/);
+    assert.equal(html.includes('Discovery · жетон Ornithopter'),discovery);
+    assert.equal(html.includes('Советницы не могут использовать орнитоптеры'),f === 'Bene Gesserit' && advanced);
+    if (f === 'Fremen') {
+      assert.match(html,/до 2 территорий.*до 3, а не 2 \+ 3/);
+      assert.equal(html.includes('Исключение Фременов для высадки под бурю'),advanced);
+    }
+    if (f === 'Ixians') assert.match(html,/Suboid без Cyborg — до 1/);
+    if (f === 'Richese') assert.match(html,/не дальность движения/);
+    if (f === 'CHOAM') assert.match(html,/сбросить Kulon/);
+    if (f === 'Moritani') assert.match(html,/Terror Tokens/);
+    assert.doesNotMatch(html,/data-shipment-cost|data-check=/);
+    a.tick(2000);
+    a.action('back');
+    assert.match(a.app.innerHTML,/data-shipment-cost/);
+    a.action('next');
+    assert.equal(a.clocks.step.textContent,'00:00:02');
+  }
+});
+
+test('Battle gives concrete guidance for all twelve factions and distinguishes Basic from Advanced', async () => {
+  const markers = {
+    Fremen:['Fedaykin','Спайс для полной силы не нужен'],
+    Atreides:['Предвидение:','Kwisatz Haderach'],
+    Harkonnen:['4 Traitor Cards','После каждой своей победы'],
+    Emperor:['Sardaukar','Поддержка одного жетона стоит 1 спайс'],
+    Guild:['нет отдельного постоянного бонуса','нет отдельного постоянного бонуса'],
+    'Bene Gesserit':['Voice:','Сражаются только бойцы'],
+    Ixians:['Suboid — ½','Suboid всегда даёт ½'],
+    Tleilaxu:['Face Dancers','Gholas'],
+    CHOAM:['В Basic постоянного бонуса','Auditor'],
+    Richese:['No-Field','реально выставленные войска'],
+    Ecaz:['Duke Vidal','Loyalty'],
+    Moritani:['Terror Tokens','Assassinate Leaders']
+  };
+  for (const [f,marker] of Object.entries(markers)) {
+    for (const advanced of [false,true]) {
+      const a=await resume(await gameWith([f,f === 'Guild' ? 'Atreides' : 'Guild'],{started:true,advanced}));
+      await reach(a,1,6);
+      const html=a.app.innerHTML;
+      assert.ok(html.includes(marker[advanced ? 1 : 0]),f+' '+advanced);
+      assert.match(html,/Скрытые карты вводить не требуется/);
+      assert.doesNotMatch(html,/data-check=|Fedaykin и исключения Advanced|Предвидение боевого плана\.|Face Dancers и особые эффекты/);
+      if (!advanced) assert.doesNotMatch(html,/активируется после суммарной гибели|Assassinate Leaders|Loyalty:|Сражаются только бойцы|Auditor:/);
+      if (f === 'Ecaz' && advanced) assert.match(html,/округляя вниз по FAQ/);
+      if (f === 'Harkonnen') assert.doesNotMatch(html,/не глядя возьмите до 4 карт/);
+    }
+  }
+});
+
+test('Battle updates opposing-faction exceptions and outside effects without restarting its timer', async () => {
+  const a=await resume(await gameWith(['Fremen','Atreides','Emperor','Tleilaxu','CHOAM'],{started:true}));
+  await reach(a,1,6);
+  assert.match(a.app.innerHTML,/даже вне выбранной пары/);
+  assert.match(a.app.innerHTML,/CHOAM участвует в партии/);
+  a.tick(2000);
+  a.change({value:'r1p6-a'},'Emperor');
+  a.change({value:'r1p6-b'},'Fremen');
+  assert.match(a.app.innerHTML,/Против Фременов Sardaukar имеют полную силу 1/);
+  assert.doesNotMatch(a.app.innerHTML,/Sardaukar имеют полную силу 2/);
+  a.change({value:'r1p6-b'},'Atreides');
+  assert.match(a.app.innerHTML,/Sardaukar имеют полную силу 2/);
+  assert.doesNotMatch(a.app.innerHTML,/Против Фременов Sardaukar имеют полную силу 1/);
+  a.tick(3000);
+  assert.equal(a.clocks.step.textContent,'00:00:05');
+  a.change({value:'r1p6-a'},'Atreides');
+  // The stored second choice now equals the first; the actual second faction falls back to Fremen.
+  assert.match(a.app.innerHTML,/Спайс для полной силы не нужен/);
+  assert.match(a.app.innerHTML,/Kwisatz Haderach/);
+  a.action('home');
+  const loaded=await resume(a.game());
+  assert.equal(loaded.clocks.step.textContent,'00:00:05');
+  assert.match(loaded.app.innerHTML,/Спайс для полной силы не нужен/);
+  loaded.action('next');
+  assert.equal(loaded.game().phase,7);
+});
+
+test('Battle No-Field and alliance guidance is contextual and CHOAM income is Advanced only', async () => {
+  for (const advanced of [false,true]) {
+    for (const alliances of [false,true]) {
+      const a=await resume(await gameWith(['Atreides','Richese','Tleilaxu','CHOAM'],{started:true,advanced,alliances}));
+      await reach(a,1,6);
+      assert.match(a.app.innerHTML,/нельзя требовать раскрыть число на диске/);
+      assert.match(a.app.innerHTML,/раскройте его одновременно с боевым планом/);
+      assert.equal(a.app.innerHTML.includes('Союзнику можно дать предвидение'),alliances);
+      assert.equal(a.app.innerHTML.includes('CHOAM участвует в партии'),advanced);
+      a.change({value:'r1p6-b'},'Tleilaxu');
+      assert.doesNotMatch(a.app.innerHTML,/даже вне выбранной пары|нельзя требовать раскрыть число на диске/);
+      assert.match(a.app.innerHTML,/Zoal копирует силу лидера/);
+    }
+  }
+});

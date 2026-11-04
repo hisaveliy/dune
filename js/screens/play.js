@@ -2,6 +2,7 @@ import { spiceBlow } from "./spice-blow.js";
 import { charity, inflationMentat } from "./charity.js";
 import { bidding } from "./bidding.js";
 import { revival, ecazAmbassadors } from "./revival.js";
+import { battle } from "./battle.js";
 import { allExtra, c, check, counter, esc, extra, note, panel, select, v } from "../ui.js";
 import { N, P } from "../data.js";
 import { state } from "../state.js";
@@ -72,14 +73,26 @@ export function phaseContent(s) {
       return `${s.r === 1 && f === state.g.selected[0] && state.g.selected.includes('Ecaz') ? ecazAmbassadors() : ''}${prescience}<h2>${N[f]}</h2>${panel('Shipment', `${landing}<div class="section">Количество войск</div>${counter(id + '-count', 0, 20)}${priceCard}${note(restrictions)}`)}${extra(f, 5)}`;
     }
 
-    return `<h2>${N[f]}</h2>${panel('Movement', `<p>Движение обычно бесплатно. Проверьте дальность, орнитоптеры, бурю и специальные способности.</p>`)}${extra(f, 5)}`;
+    const onFoot = f === 'Fremen' ? '2' : f === 'Ixians' ? '1 / 2' : '1';
+    const factionMovement = {
+      Fremen: 'Пешком Фремены перемещаются до 2 территорий. С орнитоптерами — до 3, а не 2 + 3. Дальность считается от территории, где находится выбранная группа, а не от Great Flat: ограничение Great Flat относится к Shipment. Поездка на черве в Spice Blow не расходует это обычное перемещение. Karama может отменить преимущество движения на 2 территории.',
+      Ixians: 'Cyborg перемещаются до 2 территорий. Suboid без Cyborg — до 1; группа Suboid хотя бы с одним Cyborg — до 2. При доступе к орнитоптерам группа может переместиться до 3 территорий. Вход в Hidden Mobile Stronghold из территории, на которую он указывает, требует ещё одного перехода. Перемещение самой крепости до 3 территорий выполняется в Storm, а не как движение войск здесь.',
+      Richese: 'No-Field перемещается как обычная группа войск: до 1 территории пешком или до 3 с орнитоптерами. Числа 0, 3 и 5 на жетоне обозначают скрытое количество войск, а не дальность движения.',
+      CHOAM: 'Можно сбросить Kulon ради эффекта CHOAM: переместить свои войска на одну дополнительную территорию в свой ход Shipment & Movement.'
+    };
+    return `<h2>${N[f]}</h2>${panel('Movement · дальность', `
+      <div class="grid"><div class="metric"><b>${onFoot}</b><span class="small">Территорий пешком${f === 'Ixians' ? ' · зависит от группы' : ''}</span></div><div class="metric"><b>3</b><span class="small">С орнитоптерами${f === 'Bene Gesserit' && state.g.advanced ? ' · только бойцы' : ''}</span></div></div>
+      <p>Обычно за ход можно бесплатно переместить одну группу: часть или все свои войска из одной территории в одну другую. Считайте переходы между соседними территориями, а не сектора. Исходная территория не входит в расстояние; можно пройти меньше максимума. Перестановка в другой сектор той же территории тоже выполняется как своё перемещение.</p>
+      ${panel('Когда доступны орнитоптеры', '<p>В начале своего перемещения, после Shipment, у вас должно быть хотя бы одно своё войско в Arrakeen или Carthag. Только что высаженные туда войска тоже дают доступ. Перемещаемая группа может начинать в любой территории — ей не обязательно находиться в этих крепостях. Дальность до 3 заменяет обычную дальность, а не прибавляется к ней.</p>')}
+      ${factionMovement[f] ? note(factionMovement[f]) : ''}
+      ${f === 'Bene Gesserit' && state.g.advanced ? note('Советницы не могут использовать орнитоптеры и не дают к ним доступ; они перемещаются до 1 территории. Для движения бойцов на 3 территории нужны ваши бойцы в Arrakeen или Carthag к началу перемещения.') : ''}
+      ${note('Буря: нельзя обычным движением входить в сектор под бурей, выходить из него или проходить через него, даже с орнитоптерами.' + (f === 'Fremen' && state.g.advanced ? ' Исключение Фременов для высадки под бурю не разрешает такое движение.' : ''))}
+      ${state.g.modules.discovery ? note('Discovery · жетон Ornithopter: полученный жетон можно использовать в одном из следующих раундов для одного перемещения с дальностью 3 вместо обычной. После использования удалите жетон из игры. Это не +3 и не дополнительное перемещение. Раскрытая Discovery-локация — отдельная территория внутри родительской: на вход в неё нужен ещё один переход.') : ''}
+      ${note('Hajr даёт дополнительное перемещение, а не прибавку к дальности одного маршрута. Условия орнитоптеров проверяйте заново: если первым перемещением вы вошли в Arrakeen или Carthag, для дополнительного перемещения с Hajr уже можно использовать орнитоптеры.')}
+    `)}${factionMovement[f] ? '' : extra(f, 5)}`;
   }
 
-  if (s.p === 6) {
-    let a = v(base + '-a', state.g.selected[0]),
-        b = v(base + '-b', state.g.selected.find(f => f !== a));
-    return panel('Battle', `<p>Выберите две фракции. После сражения можете выбрать другую пару; таймер продолжается для всей фазы.</p>${select(base + '-a', state.g.selected.map(f => [f, N[f]]), state.g.selected[0])}<div style="text-align:center;color:var(--gold)">VS</div>${select(base + '-b', state.g.selected.filter(f => f !== a).map(f => [f, N[f]]), state.g.selected.find(f => f !== a))}${extra(a, 6)}${extra(b === a ? state.g.selected.find(f => f !== a) : b, 6)}${note('Проверить Traitor, Weapon/Defense, оплату боевой силы, Karama и последствия боя. Скрытые карты вводить не требуется.')}`);
-  }
+  if (s.p === 6) return battle(s);
 
   if (s.p === 7) {
     let id = base + f,
