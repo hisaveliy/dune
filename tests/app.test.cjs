@@ -1075,3 +1075,23 @@ test('each new Traitor task is required for readiness and completed old preparat
   assert.match(loaded.app.innerHTML,/Готово 18 \/ 18/);
   assert.doesNotMatch(loaded.app.innerHTML,/data-action="start" disabled/);
 });
+
+test('Ecaz collection guidance distinguishes shared desert spice from full Advanced stronghold income', async () => {
+  for (const advanced of [false,true]) {
+    for (const alliances of [false,true]) {
+      const a=await resume(await gameWith(['Ecaz','Guild'],{started:true,advanced,alliances}));
+      await reach(a,1,7);
+      assert.equal(a.app.innerHTML.includes('Ecaz · совместный сбор'),alliances);
+      assert.equal(a.app.innerHTML.includes('каждый получает из банка полный доход'),alliances && advanced);
+      if (alliances) {
+        assert.match(a.app.innerHTML,/нечётный остаток получает союзник Ecaz/);
+        assert.match(a.app.innerHTML,/калькулятор не делит его автоматически/);
+        if (!advanced) assert.match(a.app.innerHTML,/В Basic дополнительный доход.*не начисляется/);
+      }
+      for (const hold of ['arr','car','tuek']) a.change({check:'r1p7Ecaz-'+hold},true);
+      a.change({value:'r1p7Ecaz-troops'},'2');
+      a.change({value:'r1p7Ecaz-available'},'5');
+      assert.equal(output(a,'data-collection-total'),advanced ? '10' : '5');
+    }
+  }
+});
