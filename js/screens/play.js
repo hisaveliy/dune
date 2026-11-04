@@ -73,7 +73,7 @@ export function phaseContent(s) {
       return `${s.r === 1 && f === state.g.selected[0] && state.g.selected.includes('Ecaz') ? ecazAmbassadors() : ''}${prescience}<h2>${N[f]}</h2>${panel('Shipment', `${landing}<div class="section">Количество войск</div>${counter(id + '-count', 0, 20)}${priceCard}${note(restrictions)}`)}${extra(f, 5)}`;
     }
 
-    const onFoot = f === 'Fremen' ? '2' : f === 'Ixians' ? '1 / 2' : '1';
+    const onFoot = f === 'Fremen' ? '2' : f === 'Ixians' ? '1-2' : '1';
     const factionMovement = {
       Fremen: 'Пешком Фремены перемещаются до 2 территорий. С орнитоптерами — до 3, а не 2 + 3. Дальность считается от территории, где находится выбранная группа, а не от Great Flat: ограничение Great Flat относится к Shipment. Поездка на черве в Spice Blow не расходует это обычное перемещение. Karama может отменить преимущество движения на 2 территории.',
       Ixians: 'Cyborg перемещаются до 2 территорий. Suboid без Cyborg — до 1; группа Suboid хотя бы с одним Cyborg — до 2. При доступе к орнитоптерам группа может переместиться до 3 территорий. Вход в Hidden Mobile Stronghold из территории, на которую он указывает, требует ещё одного перехода. Перемещение самой крепости до 3 территорий выполняется в Storm, а не как движение войск здесь.',
@@ -81,7 +81,7 @@ export function phaseContent(s) {
       CHOAM: 'Можно сбросить Kulon ради эффекта CHOAM: переместить свои войска на одну дополнительную территорию в свой ход Shipment & Movement.'
     };
     return `<h2>${N[f]}</h2>${panel('Movement · дальность', `
-      <div class="grid"><div class="metric"><b>${onFoot}</b><span class="small">Территорий пешком${f === 'Ixians' ? ' · зависит от группы' : ''}</span></div><div class="metric"><b>3</b><span class="small">С орнитоптерами${f === 'Bene Gesserit' && state.g.advanced ? ' · только бойцы' : ''}</span></div></div>
+      <div class="grid"><div class="metric"><b>${onFoot}</b><span class="small">Территорий пешком${f === 'Ixians' ? ' · 1 — только Suboid; 2 — с Cyborg' : ''}</span></div><div class="metric"><b>3</b><span class="small">С орнитоптерами${f === 'Bene Gesserit' && state.g.advanced ? ' · только бойцы' : ''}</span></div></div>
       <p>Обычно за ход можно бесплатно переместить одну группу: часть или все свои войска из одной территории в одну другую. Считайте переходы между соседними территориями, а не сектора. Исходная территория не входит в расстояние; можно пройти меньше максимума. Перестановка в другой сектор той же территории тоже выполняется как своё перемещение.</p>
       ${panel('Когда доступны орнитоптеры', '<p>В начале своего перемещения, после Shipment, у вас должно быть хотя бы одно своё войско в Arrakeen или Carthag. Только что высаженные туда войска тоже дают доступ. Перемещаемая группа может начинать в любой территории — ей не обязательно находиться в этих крепостях. Дальность до 3 заменяет обычную дальность, а не прибавляется к ней.</p>')}
       ${factionMovement[f] ? note(factionMovement[f]) : ''}

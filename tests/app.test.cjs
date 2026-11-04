@@ -881,7 +881,7 @@ test('Bidding faction guidance follows participants, Advanced and alliances with
 test('Movement explains faction ranges and conditional modifiers without changing Shipment or navigation', async () => {
   const cases = [
     ['Fremen',true,true,'2'], ['Fremen',false,false,'2'],
-    ['Ixians',true,true,'1 / 2'], ['Richese',true,true,'1'],
+    ['Ixians',true,true,'1-2'], ['Richese',true,true,'1'],
     ['Bene Gesserit',true,true,'1'], ['Bene Gesserit',false,false,'1'],
     ['CHOAM',true,false,'1'], ['Atreides',true,false,'1'], ['Moritani',true,true,'1']
   ];
