@@ -30,6 +30,8 @@ export function spiceCollection(round) {
   const base = `r${round}p7`;
   const order = roundOrder(round);
   const options = order.map(f => [f, g.playerNames[f] ? `${N[f]} · ${g.playerNames[f]}` : N[f]]);
+  const cistern = g.modules.discovery ? v(base + '-owner-cistern', '') : '';
+  const orgiz = g.modules.discovery ? v(base + '-owner-orgiz', '') : '';
   const hasEcazAlliance = g.alliances && order.includes('Ecaz');
   const allies = hasEcazAlliance ? options.filter(([f]) => f !== 'Ecaz') : [];
   const ally = v(base + '-ecaz-ally', '');
@@ -61,7 +63,18 @@ export function spiceCollection(round) {
     `) : ''}
   `);
 
-  const players = options.map(([f, player]) => {
+  const discoveries = g.modules.discovery ? panel('Discovery-локации', `
+    <p class="small">Выбирайте игрока, только если его войска находятся внутри раскрытой локации.</p>
+    <label>Cistern · +2 спайса из банка
+      ${select(base + '-owner-cistern', [['', 'Не раскрыта или не занята'], ...options], '', 'Cistern')}
+    </label>
+    <label>Orgiz Processing Station · 1 спайс с каждого собранного Spice Blow
+      ${select(base + '-owner-orgiz', [['', 'Не раскрыта или не занята'], ...options], '', 'Orgiz Processing Station')}
+    </label>
+    ${orgiz ? '<p class="small">Укажите в карточках остальных игроков, со скольких Spice Blow они собрали спайс. За каждый из них 1 спайс переходит владельцу станции.</p>' : ''}
+  `) : '';
+
+  const collections = options.map(([f, player]) => {
     const id = base + f;
     const occupied = forts.filter(fort => fort.occupants.includes(f));
     const rate = occupied.some(fort => fort.key === 'arr' || fort.key === 'car') ? 3 : 2;
@@ -72,9 +85,21 @@ export function spiceCollection(round) {
       return { key, collected };
     });
     const collected = sectors.reduce((sum, sector) => sum + sector.collected, 0);
+    const orgizPaid = orgiz && orgiz !== f
+      ? Math.min(collected, Math.max(0, Math.floor(Number(v(id + '-orgiz-blows', 0)) || 0)))
+      : 0;
+    return { f, player, id, rate, income, sectors, collected, orgizPaid };
+  });
+  const orgizIncome = collections.reduce((sum, player) => sum + player.orgizPaid, 0);
+  const players = collections.map(({ f, player, id, rate, income, sectors, collected, orgizPaid }) => {
+    const cisternIncome = f === cistern ? 2 : 0;
+    const orgizReceived = f === orgiz ? orgizIncome : 0;
     return `<section class="panel" data-collection-faction="${esc(f)}" aria-label="${esc(player)}">
-      <div class="row"><h3>${esc(player)}</h3><div class="metric"><b><output data-collection-total>${collected + income}</output></b><span class="small">Всего спайса</span></div></div>
-      <p class="small">Секторы: ${collected} · Крепости: ${income} · До ${rate} за войско</p>
+      <div class="row"><h3>${esc(player)}</h3><div class="metric"><b><output data-collection-total>${collected + income + cisternIncome + orgizReceived - orgizPaid}</output></b><span class="small">Всего спайса</span></div></div>
+      <p class="small">Секторы: ${collected} · Крепости: ${income} · До ${rate} за войско${cisternIncome ? ' · Cistern: +2' : ''}${orgizReceived ? ` · Orgiz: +${orgizReceived}` : ''}${orgizPaid ? ` · Orgiz: −${orgizPaid}` : ''}</p>
+      ${orgiz && f !== orgiz && collected ? `<label>Со скольких Spice Blow собран спайс
+        <input class="field" type="number" min="0" max="${collected}" step="1" inputmode="numeric" value="${orgizPaid}" data-value="${esc(id + '-orgiz-blows')}">
+      </label>` : ''}
       ${sectors.map(({ key, collected }, index) => `
         <div class="section">Сектор ${index + 1} · собрано ${collected}</div>
         <div class="grid">
@@ -89,5 +114,5 @@ export function spiceCollection(round) {
     </section>`;
   }).join('');
 
-  return assignments + players + accordion('Правила сбора спайса', note('Для каждого места сбора укажите войска и спайс в том же секторе. За войско можно собрать до 2 спайса, а при занятии Arrakeen или Carthag — до 3. Сбор в секторе ограничен запасом спайса в нём. Доход крепостей начисляется отдельно, один раз за фазу.'));
+  return assignments + discoveries + players + accordion('Правила сбора спайса', note('Для каждого места сбора укажите войска и спайс в том же секторе. За войско можно собрать до 2 спайса, а при занятии Arrakeen или Carthag — до 3. Сбор в секторе ограничен запасом спайса в нём. Доход крепостей начисляется отдельно, один раз за фазу.'));
 }

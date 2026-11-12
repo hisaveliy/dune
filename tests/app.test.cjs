@@ -1119,6 +1119,44 @@ test('Spice Collection sums sectors independently and assigns each fortress to o
   assert.equal(collectionTotal(loaded, 'Guild'), '8');
 });
 
+test('Discovery locations pay Cistern income and transfer Orgiz spice from other collectors', async () => {
+  for (const advanced of [false, true]) {
+    const a = await resume(await gameWith(['Atreides', 'Guild', 'Fremen'], { started: true, advanced }));
+    await reach(a, 1, 6);
+    assert.match(a.app.innerHTML, /Jacurutu Sietch.*за каждое войско противника/);
+    a.action('next');
+    assert.match(a.app.innerHTML, /Cistern · \+2/);
+    assert.doesNotMatch(a.app.innerHTML, /Jacurutu Sietch/);
+    a.change({ value: 'r1p7-owner-cistern' }, 'Guild');
+    a.change({ value: 'r1p7-owner-orgiz' }, 'Guild');
+    for (const faction of ['Atreides', 'Guild', 'Fremen']) {
+      a.change({ value: `r1p7${faction}-troops` }, '2');
+      a.change({ value: `r1p7${faction}-available` }, '5');
+    }
+    assert.doesNotMatch(a.app.innerHTML, /data-value="r1p7Guild-orgiz-blows"/);
+    a.change({ value: 'r1p7Atreides-orgiz-blows' }, '2');
+    a.change({ value: 'r1p7Fremen-orgiz-blows' }, '1');
+    const loaded = await resume(a.game());
+    assert.equal(collectionTotal(loaded, 'Atreides'), '2');
+    assert.equal(collectionTotal(loaded, 'Fremen'), '3');
+    assert.equal(collectionTotal(loaded, 'Guild'), '9');
+    loaded.change({ value: 'r1p7Atreides-available' }, '1');
+    assert.equal(collectionTotal(loaded, 'Atreides'), '0');
+    assert.equal(collectionTotal(loaded, 'Guild'), '8');
+    loaded.change({ value: 'r1p7-owner-orgiz' }, '');
+    assert.equal(collectionTotal(loaded, 'Atreides'), '1');
+    assert.equal(collectionTotal(loaded, 'Guild'), '6');
+    const disabled = loaded.game();
+    disabled.modules.discovery = false;
+    disabled.values['r1p7-owner-orgiz'] = 'Guild';
+    const withoutDiscovery = await resume(disabled);
+    assert.doesNotMatch(withoutDiscovery.app.innerHTML, /Cistern|Orgiz/);
+    assert.equal(collectionTotal(withoutDiscovery, 'Guild'), '4');
+    withoutDiscovery.action('back');
+    assert.doesNotMatch(withoutDiscovery.app.innerHTML, /Jacurutu Sietch/);
+  }
+});
+
 test('old Spice Collection saves keep their counters, unique fortress assignments and elapsed phase time', async () => {
   const a = await resume(await gameWith(['Atreides', 'Guild'], {
     started: true, advanced: true, timelineVersion: 5, cursor: 10, round: 1, phase: 7,
