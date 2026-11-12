@@ -1,5 +1,6 @@
 import { state } from "../state.js";
 import { N } from "../data.js";
+import { roundOrder } from "../game.js";
 import { check, esc, note, panel, select, v } from "../ui.js";
 
 export function spiceBlow(step) {
@@ -45,7 +46,7 @@ export function spiceBlow(step) {
       }
       content += item('continue', 'Продолжайте открывать карты до карты территории и разрешите её Spice Blow.');
       if (type === 'great') {
-        const votes = state.g.selected.map(faction => ({ faction, vote: v(id + '-great-vote-' + faction, '') }));
+        const votes = roundOrder(step.r).map(faction => ({ faction, vote: v(id + '-great-vote-' + faction, '') }));
         const yes = votes.filter(x => x.vote === 'yes').length;
         const waiting = votes.filter(x => !x.vote).length;
         content += '<div class="section">Голосование за Nexus · в порядке бури</div>';

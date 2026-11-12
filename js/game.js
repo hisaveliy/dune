@@ -2,6 +2,7 @@ import { state } from "./state.js";
 import { settle } from "./timers.js";
 import { persist } from "./storage.js";
 import { startingSetup } from "./data.js";
+const timelineVersion = 6;
 export const fresh = () => ({
   id: 'g' + Date.now(),
   created: Date.now(),
@@ -16,7 +17,7 @@ export const fresh = () => ({
   },
   checks: {},
   values: {},
-  timelineVersion: 3,
+  timelineVersion,
   cursor: 0,
   started: false,
   finished: false,
@@ -27,14 +28,21 @@ export const fresh = () => ({
   round: 1,
   phase: 0
 });
-export function timeline(version = 3) {
+export function roundOrder(round) {
+  const { selected, values } = state.g;
+  const first = selected.indexOf(values[`r${round}p0-first`]);
+  return first > 0 ? [...selected.slice(first), ...selected.slice(0, first)] : selected;
+}
+
+export function timeline(version = timelineVersion) {
   const a = [];
 
   for (let r = 1; r <= 10; r++) {
+    const order = version >= 4 ? roundOrder(r) : state.g.selected;
     for (let p = 0; p < 9; p++) {
-      if ([4, 5, 7].includes(p) || version < 2 && p === 2) {
-        for (const f of state.g.selected) {
-          if (p === 5) {
+      if (p === 5 || version < 6 && p === 7 || version < 4 && p === 4 || version < 2 && p === 2) {
+        for (const f of order) {
+          if (p === 5 && version < 5) {
             a.push({
               r,
               p,
@@ -95,28 +103,34 @@ export function timeline(version = 3) {
 export const current = () => timeline()[state.g.cursor];
 export const key = x => [x.r, x.p, x.f || 'shared', x.part].join('|');
 export function migrateTimeline() {
-  if (state.g.timelineVersion === 3) return;
+  if (state.g.timelineVersion === timelineVersion) return;
   const previous = timeline(state.g.timelineVersion ?? 1)[state.g.cursor];
-  state.g.cursor = timeline().findIndex(s => s.r === previous.r && s.p === previous.p && ([2, 3].includes(s.p) || s.part === previous.part && s.f === previous.f));
-  state.g.timelineVersion = 3;
+  state.g.cursor = timeline().findIndex(s => {
+    if (s.r !== previous.r || s.p !== previous.p) return false;
+    if ([2, 3, 4, 7].includes(s.p)) return true;
+    return s.f === previous.f && (s.p === 5 || s.part === previous.part);
+  });
+  for (const [oldKey, elapsed] of Object.entries(state.g.elapsed)) {
+    const [r, phase, f, part] = oldKey.split('|');
+    if (phase !== '5' || !['ship', 'move'].includes(part)) continue;
+    const turnKey = `${r}|5|${f}|main`;
+    state.g.elapsed[turnKey] = (state.g.elapsed[turnKey] || 0) + elapsed;
+    delete state.g.elapsed[oldKey];
+  }
+  delete state.g.values['r1p4-skip-from'];
+  state.g.timelineVersion = timelineVersion;
 }
 export function skipInitialRevival() {
   const s = current();
   if (s.r !== 1 || s.p !== 4 || state.g.values['r1p4-opened']) return;
-  state.g.values['r1p4-skip-from'] = s.f;
   state.g.cursor = timeline().findIndex(x => x.r === 1 && x.p === 5);
   state.g.round = 1;
   state.g.phase = 5;
 }
 export function step(delta) {
   settle();
-  const s = current();
-  if (s.r === 1 && s.p === 4 && delta === 1) delete state.g.values['r1p4-skip-from'];
-  let next = state.g.cursor + delta,
-      a = timeline();
-  if (delta === -1 && s.r === 1 && s.p === 5 && s.part === 'ship' && s.f === state.g.selected[0] && state.g.values['r1p4-skip-from']) {
-    next = a.findIndex(x => x.r === 1 && x.p === 4 && x.f === state.g.values['r1p4-skip-from']);
-  }
+  const next = state.g.cursor + delta;
+  const a = timeline();
   if (next < 0) return;
 
   if (next >= a.length) {
@@ -141,9 +155,7 @@ export function step(delta) {
 export function skipRevival() {
   const s = current();
   if (s.r !== 1 || s.p !== 4) return;
-  state.g.values['r1p4-skip-from'] = s.f;
-  const next = timeline().findIndex(x => x.r === 1 && x.p === 5);
-  step(next - state.g.cursor);
+  step(1);
 }
 export function setupList() {
   const hasIxians = state.g.selected.includes('Ixians');

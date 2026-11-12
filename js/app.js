@@ -9,8 +9,18 @@ import { copy, persist } from "./storage.js";
 import { activate, current, fresh, key, migrateTimeline, migrateTreacherySetup, migrateTraitorSetup, skipInitialRevival, skipRevival, step } from "./game.js";
 import { normalizeRevival } from "./revival.js";
 import { leaderPrice } from "./screens/revival.js";
+import { resizeCollection } from "./screens/spice-collection.js";
 import { v } from "./ui.js";
 const el = document.getElementById('app');
+let renderedPlayStep = null;
+
+function revivalStepForValue(valueKey) {
+  if (state.page !== 'play' || !valueKey) return;
+  const s = current();
+  if (s.p !== 4) return;
+  const f = state.g.selected.find(faction => valueKey.startsWith(`r${s.r}p4${faction}-`));
+  if (f) return { ...s, f };
+}
 
 function updateClocks(el) {
   if (state.page !== 'play' || !state.g) return;
@@ -22,6 +32,12 @@ function updateClocks(el) {
 }
 
 function render() {
+  const playStep = state.page === 'play' ? `${state.g.id}:${state.g.cursor}` : null;
+  const openRules = new Set();
+  if (playStep && playStep === renderedPlayStep) {
+    for (const details of el.querySelectorAll('details[data-rule][open]')) openRules.add(details.dataset.rule);
+  }
+
   switch (state.page) {
     case 'home':
       el.innerHTML = home();
@@ -56,12 +72,24 @@ function render() {
       break;
   }
 
+  if (openRules.size) {
+    for (const details of el.querySelectorAll('details[data-rule]')) details.open = openRules.has(details.dataset.rule);
+  }
+  renderedPlayStep = playStep;
   updateClocks(el);
 }
 
 el.addEventListener('click', evt => {
   let b = evt.target.closest('button');
   if (!b) return;
+
+  const collectionFaction = b.dataset.collectionAdd || b.dataset.collectionRemove;
+  if (collectionFaction && state.page === 'play' && current().p === 7 && state.g.selected.includes(collectionFaction)) {
+    resizeCollection(current().r, collectionFaction, b.dataset.collectionAdd ? 1 : -1);
+    persist();
+    render();
+    return;
+  }
 
   if (b.dataset.faction) {
     let f = b.dataset.faction,
@@ -101,7 +129,10 @@ el.addEventListener('click', evt => {
 
     if (state.g.started && !state.g.finished) {
       skipInitialRevival();
-      if (current().p === 4) normalizeRevival(state.g, current());
+      const s = current();
+      if (s.p === 4) {
+        for (const f of state.g.selected) normalizeRevival(state.g, { ...s, f });
+      }
       state.page = current().p === 9 ? 'stats' : 'play';
       activate();
     } else state.page = state.g.finished ? 'ended' : 'setup';
@@ -114,7 +145,8 @@ el.addEventListener('click', evt => {
   if (b.dataset.number) {
     let k = b.dataset.number;
     state.g.values[k] = Math.min(Number(b.dataset.max || 100), Math.max(0, Number(v(k, 0)) + Number(b.dataset.delta)));
-    if (state.page === 'play' && current().p === 4) normalizeRevival(state.g, current());
+    const revivalStep = revivalStepForValue(k);
+    if (revivalStep) normalizeRevival(state.g, revivalStep);
     persist();
     render();
     return;
@@ -216,8 +248,10 @@ el.addEventListener('change', evt => {
   }
 
   if (x.dataset.value) {
+    const revivalStep = revivalStepForValue(x.dataset.value);
+    if (revivalStep && x.dataset.value.endsWith('-leader-price') && state.g.values[x.dataset.value] === x.value) return;
     state.g.values[x.dataset.value] = /^r\d+p2CHOAM-stock$/.test(x.dataset.value) && x.value !== '' ? Math.max(0, Math.floor(Number(x.value))) : x.value;
-    if (state.page === 'play' && current().p === 4) normalizeRevival(state.g, current());
+    if (revivalStep) normalizeRevival(state.g, revivalStep);
     persist();
     render();
     return;
@@ -231,11 +265,12 @@ el.addEventListener('change', evt => {
 el.addEventListener('input', evt => {
   let x = evt.target;
 
-  if (state.g && state.page === 'play' && current().p === 4 && x.dataset.value === 'r' + current().r + 'p4' + current().f + '-leader-price') {
+  const revivalStep = revivalStepForValue(x.dataset.value);
+  if (revivalStep && x.dataset.value.endsWith('-leader-price')) {
     state.g.values[x.dataset.value] = x.value;
     persist();
-    const price = el.querySelector('[data-leader-price]');
-    if (price) price.innerHTML = leaderPrice(current());
+    const price = el.querySelector(`[data-leader-price="${revivalStep.f}"]`);
+    if (price) price.innerHTML = leaderPrice(revivalStep);
   }
 
   if (state.g && x.dataset.value && /^r\d+p2CHOAM-stock$/.test(x.dataset.value)) {

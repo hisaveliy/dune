@@ -1,6 +1,6 @@
 import { state } from "../state.js";
 import { N } from "../data.js";
-import { note, panel, select, v } from "../ui.js";
+import { accordion, note, panel, select, v } from "../ui.js";
 
 function factionRules(f, opponent) {
   const g = state.g, advanced = g.advanced;
@@ -60,7 +60,7 @@ function factionRules(f, opponent) {
     if (advanced) rules.push('Assassinate Leaders: если вы проиграли, лидер противника выжил и предатель не был раскрыт, можно показать Traitor Card другого лидера той же фракции. Если тот не в Tanks, убейте его и получите спайс за его силу. Один раз против каждой фракции за игру. В Mentat Pause отложите раскрытую карту как отметку и возьмите новую; обычное раскрытие предателя лишает этой возможности.', 'Особая Karama, один раз за игру: после своего поражения заставьте противника оставить или сбросить любые из сыгранных им Treachery Cards.');
     if (g.alliances) rules.push('Союзник, проигравший бой с победителем, может сохранить одну сыгранную Treachery Card, которую мог бы оставить при победе.');
   }
-  return panel(N[f], '<ul>' + rules.map(rule => '<li>' + rule + '</li>').join('') + '</ul>');
+  return accordion(N[f] + ' · боевые преимущества', '<ul>' + rules.map(rule => '<li>' + rule + '</li>').join('') + '</ul>');
 }
 
 export function battle(step) {

@@ -16,6 +16,18 @@ async function createApp(saved = []) {
   const app = {
     innerHTML: '',
     addEventListener(type, callback) { handlers[type] = callback; },
+    querySelectorAll(selector) {
+      assert.ok(['details[data-rule]', 'details[data-rule][open]'].includes(selector));
+      return [...app.innerHTML.matchAll(/<details\b[^>]*\bdata-rule="([^"]+)"( open)?>/g)]
+        .filter(match => !selector.endsWith('[open]') || match[2])
+        .map(match => ({
+          dataset: { rule: match[1] },
+          set open(value) {
+            const tag = match[0].replace(/(?: open)?>$/, value ? ' open>' : '>');
+            app.innerHTML = app.innerHTML.replace(match[0], tag);
+          }
+        }));
+    },
     querySelector(selector) {
       const kind = selector.match(/data-clock=(\w+)/)?.[1];
       if (!app.innerHTML.includes(`data-clock="${kind}"`)) return null;
@@ -129,7 +141,7 @@ test('back/next accumulate time, pause and saving/loading preserve progress', as
   a.action('next');
   await reach(a, 1, 4);
   a.tick(2000);
-  assert.equal(a.clocks.phase.textContent, '00:00:02');
+  assert.doesNotMatch(a.app.innerHTML, /data-clock="phase"/);
   assert.equal(a.clocks.step.textContent, '00:00:02');
   a.action('home');
   const saved = a.game();
@@ -332,7 +344,7 @@ test('Bidding preparation has actual tasks, normal auction rules and Richese exc
 });
 
 test('legacy Charity cursors migrate once while preserving historic player time and inputs', async () => {
-  for (const [cursor, expectedCursor, phase] of [[33, 27, 2], [35, 28, 3], [55, 47, 9]]) {
+  for (const [cursor, expectedCursor, phase] of [[33, 17, 2], [35, 18, 3], [55, 27, 9]]) {
     const legacy = await gameWith(['Fremen', 'Atreides', 'Harkonnen', 'Emperor'], {
       started: true, cursor, round: 2, phase,
       values: { 'r2p2Atreides-bracket': '1' },
@@ -341,7 +353,7 @@ test('legacy Charity cursors migrate once while preserving historic player time 
     delete legacy.timelineVersion;
     const a = await resume(legacy);
     assert.equal(a.game().cursor, expectedCursor);
-    assert.equal(a.game().timelineVersion, 3);
+    assert.equal(a.game().timelineVersion, 6);
     assert.deepEqual(a.game().elapsed, legacy.elapsed);
     assert.equal(a.game().values['r2p2Atreides-bracket'], '1');
     if (phase !== 9) a.action('home');
@@ -394,19 +406,16 @@ test('Atreides prescience appears only at the first Shipment step of each round'
   a.action('next');
   assert.doesNotMatch(a.app.innerHTML, /prescience|верхнюю карту Spice Deck/);
   await reach(a, 1, 5);
-  assert.equal(a.game().active, '1|5|Fremen|ship');
+  assert.equal(a.game().active, '1|5|Fremen|main');
   assert.match(a.app.innerHTML, /data-check="r1p5-prescience"/);
   assert.doesNotMatch(a.app.innerHTML, /data-check="r1p5-prescience" checked/);
   assert.ok(a.app.innerHTML.indexOf('data-check="r1p5-prescience"') < a.app.innerHTML.indexOf('Количество войск'));
   a.change({ check: 'r1p5-prescience' }, true);
   a.action('next');
-  assert.doesNotMatch(a.app.innerHTML, /prescience/);
-  a.action('next');
-  assert.equal(a.game().active, '1|5|Atreides|ship');
+  assert.equal(a.game().active, '1|5|Atreides|main');
   assert.doesNotMatch(a.app.innerHTML, /prescience/);
   a.action('home');
   const loaded = await resume(a.game());
-  loaded.action('back');
   loaded.action('back');
   assert.match(loaded.app.innerHTML, /data-check="r1p5-prescience" checked/);
   await reach(loaded, 2, 5);
@@ -425,25 +434,16 @@ test('first-round Revival can be skipped, with elapsed time and the return posit
   assert.match(a.app.innerHTML, /Ecaz.*послов/);
   a.tick(3000);
   a.action('skip-revival');
-  assert.equal(a.game().active, '1|5|Fremen|ship');
-  assert.equal(a.game().elapsed['1|4|Fremen|main'], 3000);
-  assert.equal(a.game().elapsed['1|4|Atreides|main'], undefined);
-  assert.equal(a.game().elapsed['1|4|Ecaz|main'], undefined);
+  assert.equal(a.game().active, '1|5|Fremen|main');
+  assert.equal(a.game().elapsed['1|4|shared|main'], 3000);
   assert.match(a.app.innerHTML, /data-check="r1p5-prescience"/);
   a.action('home');
   const loaded = await resume(a.game());
   loaded.action('back');
-  assert.equal(loaded.game().active, '1|4|Fremen|main');
+  assert.equal(loaded.game().active, '1|4|shared|main');
   assert.equal(loaded.clocks.step.textContent, '00:00:03');
   loaded.action('next');
-  assert.equal(loaded.game().active, '1|4|Atreides|main');
-  loaded.action('skip-revival');
-  loaded.action('back');
-  assert.equal(loaded.game().active, '1|4|Atreides|main');
-  loaded.action('next');
-  loaded.action('next');
-  loaded.action('back');
-  assert.equal(loaded.game().active, '1|4|Ecaz|main');
+  assert.equal(loaded.game().active, '1|5|Fremen|main');
   await reach(loaded, 2, 4);
   assert.doesNotMatch(loaded.app.innerHTML, /data-action="skip-revival"/);
   assert.match(loaded.app.innerHTML, /Воскресить войск/);
@@ -482,7 +482,6 @@ test('ordinary and Guild Shipment retain the destination selector and prices', a
   a.change({ value: 'r1p5Atreides-destination' }, 'other');
   assert.match(a.app.innerHTML, /data-shipment-cost>6</);
   a.action('next');
-  a.action('next');
   assert.match(a.app.innerHTML, /data-value="r1p5Guild-destination"/);
   assert.match(a.app.innerHTML, /data-shipment-cost>2</);
   a.change({ value: 'r1p5Guild-destination' }, 'other');
@@ -500,7 +499,6 @@ test('Shipment shows a prominent price card and the correct payment recipient', 
     assert.match(a.app.innerHTML, guild ? /Оплата: Гильдии/ : /Оплата: в банк спайса/);
     a.change({ value: 'r1p5Atreides-destination' }, 'hold');
     assert.match(a.app.innerHTML, /data-shipment-cost>4</);
-    a.action('next');
     a.action('next');
     if (guild) {
       assert.match(a.app.innerHTML, /data-shipment-cost>2</);
@@ -520,7 +518,7 @@ test('Mentat shows the Fremen special-victory reminder only in round ten', async
   for (let round = 1; round <= 10; round++) {
     await reach(a, round, 8);
     assert.equal(a.app.innerHTML.includes('В конце 10-го раунда — специальная победа.'), round === 10);
-    assert.match(a.app.innerHTML, /<strong>Ecaz<\/strong>/);
+    assert.match(a.app.innerHTML, /<summary class="section">Ecaz · условия победы<\/summary>/);
     assert.doesNotMatch(a.app.innerHTML, /data-check="r\d+-mentat-/);
     for (const module of ['discovery', 'strong', 'tech']) {
       assert.match(a.app.innerHTML, new RegExp(`data-check="r${round}p8-${module}"`));
@@ -543,7 +541,7 @@ test('round screens omit completion confirmations but retain concrete checklists
     if (a.game().phase === 1) assert.match(a.app.innerHTML, /data-check="r1p1[AB]-spice-storm"/);
     if (a.game().phase === 3) assert.match(a.app.innerHTML, /data-check="r1p3-hands"/);
     if (a.game().phase === 4) assert.match(a.app.innerHTML, /ЦЕНА ВОСКРЕШЕНИЯ ВОЙСК/);
-    if (a.game().phase === 7) assert.match(a.app.innerHTML, /Контроль Arrakeen/);
+    if (a.game().phase === 7) assert.match(a.app.innerHTML, /data-value="r1p7-owner-arr"/);
     if (a.game().phase === 8) {
       assert.match(a.app.innerHTML, /Jacurutu Sietch/);
       assert.match(a.app.innerHTML, /[Сс]оветниц/);
@@ -695,14 +693,14 @@ test('Bidding is one screen between Charity and Revival, retaining preparation c
 });
 
 test('both old Bidding steps and subsequent positions migrate from timeline versions one and two', async () => {
-  for (const [version, cursor, target, phase] of [[1,35,28,3],[1,36,28,3],[2,29,28,3],[2,30,28,3],[1,37,29,4],[2,31,29,4]]) {
+  for (const [version, cursor, target, phase] of [[1,35,18,3],[1,36,18,3],[2,29,18,3],[2,30,18,3],[1,37,19,4],[2,31,19,4]]) {
     const legacy = await gameWith(['Fremen','Atreides','Harkonnen','Emperor'], {
       started:true, timelineVersion:version, cursor, round:2, phase,
       checks:{'r2p3-hands':true,'r2p3-cards':true},
       elapsed:{'2|3|shared|prepare':3000,'2|3|shared|auction':5000}
     });
     const a = await resume(legacy);
-    assert.equal(a.game().timelineVersion,3);
+    assert.equal(a.game().timelineVersion,6);
     assert.equal(a.game().cursor,target);
     assert.deepEqual(a.game().elapsed,legacy.elapsed);
     if (phase === 4) a.action('back');
@@ -712,7 +710,7 @@ test('both old Bidding steps and subsequent positions migrate from timeline vers
     a.tick(2000);
     a.action('home');
     const loaded = await resume(a.game());
-    assert.equal(loaded.game().cursor,28);
+    assert.equal(loaded.game().cursor,18);
     assert.equal(loaded.clocks.step.textContent,'00:00:10');
     assert.equal(loaded.game().elapsed['2|3|shared|prepare'],3000);
     assert.equal(loaded.game().elapsed['2|3|shared|auction'],5000);
@@ -721,8 +719,13 @@ test('both old Bidding steps and subsequent positions migrate from timeline vers
   }
 });
 
-function output(a, attribute) {
-  return a.app.innerHTML.match(new RegExp('<output ' + attribute + '>([^<]+)</output>'))?.[1];
+function revivalCard(a, faction) {
+  return a.app.innerHTML.match(new RegExp('data-revival-faction="' + faction + '"[^>]*>([\\s\\S]*?)</section>'))?.[1];
+}
+
+function output(a, attribute, faction) {
+  const html = faction ? revivalCard(a, faction) : a.app.innerHTML;
+  return html?.match(new RegExp('<output ' + attribute + '>([^<]+)</output>'))?.[1];
 }
 
 test('round one skips Revival by default and old saves retain history and manual access', async () => {
@@ -730,20 +733,22 @@ test('round one skips Revival by default and old saves retain history and manual
   await reach(a, 1, 3);
   a.tick(2000);
   a.action('next');
-  assert.equal(a.game().active, '1|5|Atreides|ship');
+  assert.equal(a.game().active, '1|5|Atreides|main');
   assert.match(a.app.innerHTML, /Ecaz · конец Revival/);
   assert.equal(Object.keys(a.game().elapsed).some(k => k.includes('|4|')), false);
   a.action('back');
-  assert.equal(a.game().active, '1|4|Atreides|main');
+  assert.equal(a.game().active, '1|4|shared|main');
   a.tick(3000);
   const manuallyOpened = await resume(a.game());
-  assert.equal(manuallyOpened.game().active, '1|4|Atreides|main');
+  assert.equal(manuallyOpened.game().active, '1|4|shared|main');
   assert.equal(manuallyOpened.clocks.step.textContent, '00:00:03');
   const legacy = a.game();
+  legacy.timelineVersion = 3;
   delete legacy.values['r1p4-opened'];
+  legacy.elapsed = { '1|3|shared|main': 2000, '1|4|Atreides|main': 3000 };
   legacy.values['r1p4Atreides-troops'] = 3;
   const loaded = await resume(legacy);
-  assert.equal(loaded.game().active, '1|5|Atreides|ship');
+  assert.equal(loaded.game().active, '1|5|Atreides|main');
   assert.equal(loaded.game().elapsed['1|4|Atreides|main'], 3000);
   loaded.action('back');
   assert.equal(output(loaded, 'data-revival-cost'), '2');
@@ -760,7 +765,7 @@ test('all twelve factions have their own free allowance, force cap and visible R
     const a = await resume(await gameWith([f, f === 'Guild' ? 'Atreides' : 'Guild'], { started: true }));
     await reach(a, 2, 4);
     const id = 'r2p4' + f;
-    assert.match(a.app.innerHTML, new RegExp('<b>' + allowance + '</b><span class="small">Бесплатных войск'));
+    assert.ok(revivalCard(a, f).includes('Бесплатно: ' + allowance));
     assert.match(a.app.innerHTML, new RegExp('data-number="' + id + '-troops" data-delta="1" data-max="' + cap + '"'));
     for (let i=0; i<3; i++) a.click('delta', '1');
     assert.equal(output(a, 'data-revival-cost'), String(cost), f);
@@ -794,10 +799,10 @@ test('Tleilaxu permission and ally choices change Revival caps, prices and recip
   assert.equal(output(a,'data-revival-cost'),'0');
   const loaded = await resume(a.game());
   assert.equal(output(loaded,'data-emperor-revival-cost'),'6');
-  loaded.action('next');
-  assert.equal(output(loaded,'data-revival-cost'),'0');
+  assert.equal(output(loaded,'data-revival-cost','Tleilaxu'),'0');
   loaded.change({value:'r2p4Tleilaxu-troops'},'20');
-  assert.equal(output(loaded,'data-revival-cost'),'18');
+  assert.equal(output(loaded,'data-revival-cost','Tleilaxu'),'18');
+  assert.equal(output(loaded,'data-revival-cost','Fremen'),'0');
 });
 
 test('Ixian mixed forces and rounded allied leader costs do not use the ordinary force rate', async () => {
@@ -890,10 +895,10 @@ test('Movement explains faction ranges and conditional modifiers without changin
       started:true, advanced, modules:{discovery,stronghold:true,tech:true}
     }));
     await reach(a,1,5);
-    assert.match(a.app.innerHTML,/data-shipment-cost/);
-    a.action('next');
     const html = a.app.innerHTML;
-    assert.equal(a.game().active,'1|5|'+f+'|move');
+    assert.equal(a.game().active,'1|5|'+f+'|main');
+    assert.match(html,/data-shipment-cost/);
+    assert.ok(html.indexOf('data-shipment-cost') < html.indexOf('Movement · дальность'));
     assert.ok(html.includes('<b>'+range+'</b><span class="small">Территорий пешком'));
     assert.match(html,/после Shipment/);
     assert.match(html,/Только что высаженные туда войска тоже дают доступ/);
@@ -909,11 +914,12 @@ test('Movement explains faction ranges and conditional modifiers without changin
     if (f === 'Richese') assert.match(html,/не дальность движения/);
     if (f === 'CHOAM') assert.match(html,/сбросить Kulon/);
     if (f === 'Moritani') assert.match(html,/Terror Tokens/);
-    assert.doesNotMatch(html,/data-shipment-cost|data-check=/);
+    assert.equal([...html.matchAll(/data-check=/g)].length, f === 'Atreides' ? 1 : 0);
     a.tick(2000);
-    a.action('back');
-    assert.match(a.app.innerHTML,/data-shipment-cost/);
     a.action('next');
+    assert.equal(a.game().active, '1|5|Guild|main');
+    a.action('back');
+    assert.equal(a.game().active, '1|5|'+f+'|main');
     assert.equal(a.clocks.step.textContent,'00:00:02');
   }
 });
@@ -1076,6 +1082,65 @@ test('each new Traitor task is required for readiness and completed old preparat
   assert.doesNotMatch(loaded.app.innerHTML,/data-action="start" disabled/);
 });
 
+function collectionTotal(a, faction) {
+  const card = a.app.innerHTML.split(`data-collection-faction="${faction}"`)[1]?.split('</section>')[0];
+  return card?.match(/<output data-collection-total>(\d+)<\/output>/)?.[1];
+}
+
+test('Spice Collection sums sectors independently and assigns each fortress to one player', async () => {
+  const a = await resume(await gameWith(['Atreides', 'Guild'], {
+    started: true, advanced: true, playerNames: { Atreides: 'Пол' }
+  }));
+  await reach(a, 1, 7);
+  assert.equal(a.game().active, '1|7|shared|main');
+  assert.match(a.app.innerHTML, /Атрейдесы · Пол/);
+  a.change({ value: 'r1p7-owner-arr' }, 'Atreides');
+  for (const [key, value] of [
+    ['Atreides-troops', '2'], ['Atreides-available', '8'],
+    ['Guild-troops', '2'], ['Guild-available', '9']
+  ]) a.change({ value: 'r1p7' + key }, value);
+  a.click('collection-add', 'Atreides');
+  a.change({ value: 'r1p7Atreides-sector-2-troops' }, '1');
+  a.change({ value: 'r1p7Atreides-sector-2-available' }, '2');
+  assert.equal(collectionTotal(a, 'Atreides'), '10');
+  assert.equal(collectionTotal(a, 'Guild'), '4');
+
+  a.change({ value: 'r1p7-owner-arr' }, 'Guild');
+  const loaded = await resume(a.game());
+  assert.equal(collectionTotal(loaded, 'Atreides'), '6');
+  assert.equal(collectionTotal(loaded, 'Guild'), '8');
+  loaded.click('collection-remove', 'Atreides');
+  assert.doesNotMatch(loaded.app.innerHTML, /r1p7Atreides-sector-2/);
+  loaded.click('collection-add', 'Atreides');
+  assert.equal(collectionTotal(loaded, 'Atreides'), '4');
+  loaded.action('next');
+  assert.equal(loaded.game().phase, 8);
+  loaded.action('back');
+  assert.equal(collectionTotal(loaded, 'Guild'), '8');
+});
+
+test('old Spice Collection saves keep their counters, unique fortress assignments and elapsed phase time', async () => {
+  const a = await resume(await gameWith(['Atreides', 'Guild'], {
+    started: true, advanced: true, timelineVersion: 5, cursor: 10, round: 1, phase: 7,
+    checks: { 'r1p7Atreides-arr': true, 'r1p7Atreides-car': true, 'r1p7Guild-car': true },
+    values: { 'r1p7Atreides-troops': 2, 'r1p7Atreides-available': 8 },
+    elapsed: { '1|7|Atreides|main': 3000, '1|7|Guild|main': 4000 }
+  }));
+  assert.equal(a.game().active, '1|7|shared|main');
+  assert.equal(a.game().cursor, 9);
+  assert.equal(a.clocks.step.textContent, '00:00:07');
+  assert.equal(collectionTotal(a, 'Atreides'), '8');
+  assert.equal(collectionTotal(a, 'Guild'), '0');
+  assert.match(a.app.innerHTML, /В старом сохранении указано несколько владельцев/);
+  a.change({ value: 'r1p7-owner-car' }, 'Guild');
+  a.change({ value: 'r1p7-owner-arr' }, '');
+  const loaded = await resume(a.game());
+  assert.doesNotMatch(loaded.app.innerHTML, /В старом сохранении указано несколько владельцев/);
+  assert.equal(collectionTotal(loaded, 'Atreides'), '4');
+  assert.equal(collectionTotal(loaded, 'Guild'), '2');
+  assert.equal(loaded.clocks.step.textContent, '00:00:07');
+});
+
 test('Ecaz collection guidance distinguishes shared desert spice from full Advanced stronghold income', async () => {
   for (const advanced of [false,true]) {
     for (const alliances of [false,true]) {
@@ -1084,14 +1149,151 @@ test('Ecaz collection guidance distinguishes shared desert spice from full Advan
       assert.equal(a.app.innerHTML.includes('Ecaz · совместный сбор'),alliances);
       assert.equal(a.app.innerHTML.includes('каждый получает из банка полный доход'),alliances && advanced);
       if (alliances) {
-        assert.match(a.app.innerHTML,/нечётный остаток получает союзник Ecaz/);
-        assert.match(a.app.innerHTML,/калькулятор не делит его автоматически/);
+        assert.match(a.app.innerHTML,/нечётный остаток получает союзник Ecaz/i);
+        assert.match(a.app.innerHTML,/калькулятор не делит его автоматически/i);
         if (!advanced) assert.match(a.app.innerHTML,/В Basic дополнительный доход.*не начисляется/);
       }
-      for (const hold of ['arr','car','tuek']) a.change({check:'r1p7Ecaz-'+hold},true);
+      for (const hold of ['arr','car','tuek']) a.change({value:'r1p7-owner-'+hold},'Ecaz');
       a.change({value:'r1p7Ecaz-troops'},'2');
       a.change({value:'r1p7Ecaz-available'},'5');
-      assert.equal(output(a,'data-collection-total'),advanced ? '10' : '5');
+      assert.equal(collectionTotal(a, 'Ecaz'), advanced ? '10' : '5');
+      if (alliances) {
+        a.change({ value: 'r1p7-ecaz-ally' }, 'Guild');
+        a.change({ check: 'r1p7-shared-arr-Guild' }, true);
+        a.change({ value: 'r1p7Guild-troops' }, '1');
+        a.change({ value: 'r1p7Guild-available' }, '4');
+        assert.equal(collectionTotal(a, 'Guild'), advanced ? '5' : '3');
+        a.change({ value: 'r1p7-ecaz-ally' }, '');
+        assert.equal(collectionTotal(a, 'Guild'), '2');
+      }
     }
+  }
+});
+
+test('Bidding keeps controls visible and preserves expanded rules while updating the current step', async () => {
+  const a = await resume(await gameWith(['Richese', 'Ixians'], { started: true }));
+  await reach(a, 1, 3);
+  for (const title of ['Black Market', 'Обычные торги', 'Richese · особая продажа']) {
+    assert.ok(a.app.querySelectorAll('details[data-rule]').some(details => details.dataset.rule.includes(title)));
+  }
+  assert.equal(a.app.querySelectorAll('details[data-rule][open]').length, 0);
+  const withoutRules = a.app.innerHTML.replace(/<details\b[^>]*>[\s\S]*?<\/details>/g, '');
+  assert.match(withoutRules, /data-check="r1p3-hands"/);
+  assert.match(withoutRules, /data-check="r1p3-cards"/);
+  assert.match(withoutRules, /data-action="next"/);
+
+  a.app.querySelectorAll('details[data-rule]').find(details => details.dataset.rule === 'Обычные торги').open = true;
+  a.change({ check: 'r1p3-hands' }, true);
+  a.action('pause');
+  assert.deepEqual(a.app.querySelectorAll('details[data-rule][open]').map(details => details.dataset.rule), ['Обычные торги']);
+  a.action('back');
+  a.action('next');
+  assert.equal(a.app.querySelectorAll('details[data-rule][open]').length, 0);
+});
+
+test('old per-faction Revival saves open the shared screen with independent counts and one phase timer', async () => {
+  const old = await gameWith(['Ixians', 'CHOAM'], {
+    timelineVersion: 3, cursor: 22, round: 2, phase: 4, started: true,
+    values: { 'r2p4Ixians-troops': 3, 'r2p4Ixians-cyborgs': 2, 'r2p4CHOAM-troops': 4 },
+    elapsed: { '2|4|Ixians|main': 3000, '2|4|CHOAM|main': 7000 }
+  });
+  const a = await resume(old);
+  assert.equal(a.game().active, '2|4|shared|main');
+  assert.equal(a.clocks.step.textContent, '00:00:10');
+  assert.deepEqual(a.game().elapsed, old.elapsed);
+  assert.doesNotMatch(a.app.innerHTML, /ВРЕМЯ ИГРОКА/);
+  assert.match(revivalCard(a, 'Ixians'), /data-number="r2p4Ixians-troops"[\s\S]*<details/);
+  assert.match(revivalCard(a, 'CHOAM'), /data-number="r2p4CHOAM-troops"[\s\S]*<details/);
+  assert.ok(a.app.innerHTML.indexOf('Общие правила Revival') > a.app.innerHTML.indexOf('data-revival-faction="CHOAM"'));
+  assert.equal(output(a, 'data-revival-cost', 'Ixians'), '5');
+  assert.equal(output(a, 'data-revival-cost', 'CHOAM'), '4');
+
+  a.click('number', 'r2p4CHOAM-troops');
+  assert.equal(output(a, 'data-revival-cost', 'CHOAM'), '3');
+  assert.equal(output(a, 'data-revival-cost', 'Ixians'), '5');
+  a.click('number', 'r2p4Ixians-troops');
+  assert.equal(output(a, 'data-revival-cost', 'Ixians'), '3');
+  assert.equal(a.game().values['r2p4Ixians-cyborgs'], 2);
+
+  a.tick(2000);
+  a.action('next');
+  assert.equal(a.game().active, '2|5|Ixians|main');
+  a.action('back');
+  assert.equal(a.game().active, '2|4|shared|main');
+  assert.equal(a.clocks.step.textContent, '00:00:12');
+  const loaded = await resume(a.game());
+  assert.equal(output(loaded, 'data-revival-cost', 'CHOAM'), '3');
+  assert.equal(loaded.clocks.step.textContent, '00:00:12');
+});
+
+test('Storm sets the first faction independently each round and rotates turns without changing seating', async () => {
+  const seating = ['Fremen', 'Atreides', 'Guild', 'Ecaz'];
+  const a = await resume(await gameWith(seating, { started: true }));
+  assert.match(a.app.innerHTML, /data-value="r1p0-first"/);
+  a.tick(2000);
+  a.change({ value: 'r1p0-first' }, 'Guild');
+  assert.match(a.app.innerHTML, /Гильдия → Ecaz → Фремены → Атрейдесы/);
+  assert.equal(a.clocks.step.textContent, '00:00:02');
+  assert.deepEqual(a.game().selected, seating);
+
+  await reach(a, 1, 3);
+  assert.match(a.app.innerHTML, /Порядок по буре · Гильдия → Ecaz → Фремены → Атрейдесы/);
+  a.action('next');
+  assert.equal(a.game().active, '1|5|Guild|main');
+  assert.match(a.app.innerHTML, /data-check="r1p5-prescience"/);
+  assert.match(a.app.innerHTML, /Ecaz · конец Revival/);
+  a.action('back');
+  assert.equal(a.game().active, '1|4|shared|main');
+  a.action('next');
+
+  for (const faction of ['Guild', 'Ecaz', 'Fremen', 'Atreides']) {
+    assert.equal(a.game().active, `1|5|${faction}|main`);
+    if (faction !== 'Guild') assert.doesNotMatch(a.app.innerHTML, /data-check="r1p5-prescience"/);
+    assert.match(a.app.innerHTML, /Movement · дальность/);
+    a.action('next');
+  }
+
+  await reach(a, 1, 7);
+  assert.equal(a.game().active, '1|7|shared|main');
+  assert.deepEqual([...a.app.innerHTML.matchAll(/data-collection-faction="([^"]+)"/g)].map(match => match[1]), ['Guild', 'Ecaz', 'Fremen', 'Atreides']);
+  a.action('next');
+  const loaded = await resume(a.game());
+  assert.equal(loaded.game().active, '1|8|shared|main');
+  await reach(loaded, 2, 0);
+  assert.match(loaded.app.innerHTML, /Фремены → Атрейдесы → Гильдия → Ecaz/);
+  loaded.change({ value: 'r2p0-first' }, 'Ecaz');
+  assert.equal(loaded.game().values['r1p0-first'], 'Guild');
+  assert.deepEqual(loaded.game().selected, seating);
+  loaded.action('next');
+  loaded.change({ value: 'r2p1A-type' }, 'great');
+  const votes = [...loaded.app.innerHTML.matchAll(/data-value="r2p1A-great-vote-([^"]+)"/g)];
+  assert.deepEqual(votes.map(match => match[1]), ['Ecaz', 'Fremen', 'Atreides', 'Guild']);
+  await reach(loaded, 2, 5);
+  assert.equal(loaded.game().active, '2|5|Ecaz|main');
+});
+
+test('old Shipment and Movement saves retain the correct faction and combine its two timers', async () => {
+  for (const [cursor, part] of [[26, 'ship'], [27, 'move']]) {
+    const legacy = await gameWith(['Atreides', 'Guild', 'Ecaz'], {
+      started: true, paused: true, timelineVersion: 4, cursor, round: 2, phase: 5,
+      active: `2|5|Ecaz|${part}`,
+      values: { 'r2p0-first': 'Guild', 'r2p5Ecaz-count': 3, 'r2p5Ecaz-destination': 'other' },
+      checks: { 'r2p5-prescience': true },
+      elapsed: { '2|5|Guild|ship': 2000, '2|5|Guild|move': 1000, '2|5|Ecaz|ship': 4000, '2|5|Ecaz|move': 3000 }
+    });
+    const a = await resume(legacy);
+    assert.equal(a.game().cursor, 20);
+    assert.equal(a.game().active, '2|5|Ecaz|main');
+    assert.equal(a.clocks.step.textContent, '00:00:07');
+    assert.equal(a.clocks.phase.textContent, '00:00:10');
+    assert.deepEqual(a.game().elapsed, { '2|5|Guild|main': 3000, '2|5|Ecaz|main': 7000 });
+    assert.match(a.app.innerHTML, /data-shipment-cost>6</);
+    assert.match(a.app.innerHTML, /Movement · дальность/);
+    const reloaded = await resume(a.game());
+    assert.equal(reloaded.clocks.step.textContent, '00:00:07');
+    reloaded.action('next');
+    assert.equal(reloaded.game().active, '2|5|Atreides|main');
+    reloaded.action('next');
+    assert.equal(reloaded.game().active, '2|6|shared|main');
   }
 });

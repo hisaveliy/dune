@@ -199,6 +199,28 @@ p {
   text-transform:uppercase
 }
 
+.rules-accordion {
+  padding:0
+}
+
+.rules-accordion > summary {
+  margin:0;
+  min-height:44px;
+  padding:12px 14px;
+  cursor:pointer;
+  border-radius:inherit
+}
+
+.rules-accordion > summary:focus-visible {
+  outline:2px solid var(--gold);
+  outline-offset:-2px
+}
+
+.rules-content {
+  padding:0 14px 14px;
+  display:flow-root
+}
+
 .check {
   display:flex;
   gap:10px;
@@ -232,6 +254,21 @@ p {
   padding:13px 17px 22px;
   background:#202720;
   border-top:1px solid var(--line)
+}
+
+.play-screen {
+  display:flex;
+  flex-direction:column;
+  min-height:100vh;
+  min-height:100dvh
+}
+
+.play-footer {
+  position:sticky;
+  bottom:0;
+  z-index:1;
+  margin-top:auto;
+  padding-bottom:max(22px, calc(12px + env(safe-area-inset-bottom, 0px)))
 }
 
 .nav {
