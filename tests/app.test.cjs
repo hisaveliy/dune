@@ -1139,8 +1139,8 @@ test('each new Traitor task is required for readiness and completed old preparat
 });
 
 function collectionIncome(a, faction) {
-  const card = a.app.innerHTML.split(`data-collection-faction="${faction}"`)[1]?.split('</section>')[0];
-  return card?.match(/<output data-collection-income>(\d+)<\/output>/)?.[1];
+  const row = a.app.innerHTML.split(`data-collection-faction="${faction}"`)[1]?.split('data-collection-faction=')[0];
+  return row?.match(/<output data-collection-income>(\d+)<\/output>/)?.[1];
 }
 
 test('Spice Collection uses post-battle fortress counts with Homeworlds disabled', async () => {
@@ -1163,7 +1163,11 @@ test('Spice Collection uses post-battle fortress counts with Homeworlds disabled
   assert.match(a.app.innerHTML, /Атрейдесы · Пол/);
   assert.match(a.app.innerHTML, /<table aria-label="Крепости">[\s\S]*?<th scope="row">Arrakeen<\/th><td>Атрейдесы<\/td><td>\+2<\/td>/);
   assert.doesNotMatch(a.app.innerHTML, /<select|data-number|collection-add/);
-  assert.match(a.app.innerHTML, /до <strong>3 спайса за войско/);
+  const atreides = a.app.innerHTML.split('data-collection-faction="Atreides"')[1].split('</details>')[0];
+  assert.match(atreides, /до <\/span>3<span[^>]*> спайса за войско/);
+  assert.match(atreides, /<span>Arrakeen<\/span><strong>\+2<\/strong>/);
+  assert.match(a.app.innerHTML, /<div class="collection-row collection-faction" data-collection-faction="Guild">/);
+  assert.match(a.app.innerHTML, /<details[^>]*data-rule="Контроль локаций">/);
   assert.equal(collectionIncome(a, 'Atreides'), '2');
   assert.equal(collectionIncome(a, 'Guild'), '0');
 
@@ -1263,7 +1267,9 @@ test('Homeworld faction selections determine bank income in Basic and Advanced S
     assert.match(loaded.app.innerHTML, /<th scope="row">Caladan<\/th>\s*<td>Оккупант · Гильдия<\/td>\s*<td>\+2<\/td>/);
     assert.match(loaded.app.innerHTML, /<th scope="row">Richese<\/th>\s*<td>Оккупант · Гильдия<\/td>\s*<td>\+1<\/td>/);
     assert.match(loaded.app.innerHTML, /«Гильдия» половину всего спайса, собранного Фременами/);
-    assert.match(loaded.app.innerHTML, /Homeworlds \+5/);
+    const guild = loaded.app.innerHTML.split('data-collection-faction="Guild"')[1].split('</details>')[0];
+    assert.match(guild, /<span>Caladan · оккупация<\/span><strong>\+2<\/strong>/);
+    assert.match(guild, /<span>Richese · оккупация<\/span><strong>\+1<\/strong>/);
     assert.equal(collectionIncome(loaded, 'Guild'), advanced ? '7' : '5');
     assert.equal(collectionIncome(loaded, 'Atreides'), '0');
 
