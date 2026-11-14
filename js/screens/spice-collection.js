@@ -31,18 +31,27 @@ export function spiceCollection(round) {
   const { forts, homeworlds } = boardPositions(g, round);
   const assignments = panel('Крепости', `
     <p class="small">Контроль указан на шаге «Войска после боя». Для исправления вернитесь назад.</p>
-    ${forts.filter(fort => fort.income).map(fort => `<div class="row">
-      <span>${fort.name}${g.advanced ? ` · +${fort.income} спайса` : ''}</span><strong>${fortStatus(fort)}</strong>
-    </div>`).join('')}
+    <table aria-label="Крепости">
+      <thead><tr><th scope="col">Крепость</th><th scope="col">Контроль</th>${g.advanced ? '<th scope="col">Спайс</th>' : ''}</tr></thead>
+      <tbody>${forts.filter(fort => fort.income).map(fort => `<tr>
+        <th scope="row">${fort.name}</th><td>${fortStatus(fort)}</td>${g.advanced ? `<td>+${fort.income}</td>` : ''}
+      </tr>`).join('')}</tbody>
+    </table>
     ${g.alliances && order.includes('Ecaz') ? accordion('Ecaz · совместный сбор', `
       <p>Спайс, собранный вместе в пустыне, делите по договорённости. Если не договорились, разделите поровну. Нечётный остаток получает союзник Ecaz. Калькулятор не делит его автоматически.</p>
       ${g.advanced ? '<p>В Advanced каждый получает из банка полный доход совместно занятой крепости.</p>' : '<p>В Basic дополнительный доход за занятие этих крепостей не начисляется.</p>'}
     `) : ''}
   `);
-  const occupation = homeworlds.length ? panel('Homeworlds', homeworlds.map(world => `
-    <div class="row"><span>${world.name}${world.recorded ? ' · резерв ' + world.forces.find(force => force.faction === world.native).count : ''}</span>
-    <strong>${homeworldStatus(world)}</strong></div>
-  `).join('')) : '';
+  const occupation = homeworlds.length ? panel('Homeworlds', `
+    <table aria-label="Homeworlds">
+      <thead><tr><th scope="col">Мир</th><th scope="col">Резерв</th><th scope="col">Оккупация</th></tr></thead>
+      <tbody>${homeworlds.map(world => `<tr>
+        <th scope="row">${world.name}</th>
+        <td>${world.forces.find(force => force.faction === world.native).count ?? '—'}</td>
+        <td>${world.occupier ? N[world.occupier] : homeworldStatus(world)}</td>
+      </tr>`).join('')}</tbody>
+    </table>
+  `) : '';
 
   const discoveries = g.modules.discovery ? panel('Discovery-локации', `
     <p class="small">Выбирайте игрока, только если его войска находятся внутри раскрытой локации.</p>
@@ -52,7 +61,7 @@ export function spiceCollection(round) {
     <label>Orgiz Processing Station · 1 спайс с каждого собранного Spice Blow
       ${select(base + '-owner-orgiz', [['', 'Не раскрыта или не занята'], ...options], '', 'Orgiz Processing Station')}
     </label>
-    ${orgiz ? '<p class="small">Укажите в карточках остальных игроков, со скольких Spice Blow они собрали спайс. За каждый из них 1 спайс переходит владельцу станции.</p>' : ''}
+    ${orgiz ? '<p class="small">Вводите каждый собранный Spice Blow отдельной строкой сектора. Калькулятор переводит владельцу станции 1 спайс с каждой такой строки у остальных игроков.</p>' : ''}
   `) : '';
 
   const collections = options.map(([f, player]) => {
@@ -67,7 +76,7 @@ export function spiceCollection(round) {
     });
     const collected = sectors.reduce((sum, sector) => sum + sector.collected, 0);
     const orgizPaid = orgiz && orgiz !== f
-      ? Math.min(collected, Math.max(0, Math.floor(Number(v(id + '-orgiz-blows', 0)) || 0)))
+      ? sectors.filter(sector => sector.collected > 0).length
       : 0;
     return { f, player, id, rate, income, sectors, collected, orgizPaid };
   });
@@ -78,9 +87,6 @@ export function spiceCollection(round) {
     return `<section class="panel" data-collection-faction="${esc(f)}" aria-label="${esc(player)}">
       <div class="row"><h3>${esc(player)}</h3><div class="metric"><b><output data-collection-total>${collected + income + cisternIncome + orgizReceived - orgizPaid}</output></b><span class="small">Всего спайса</span></div></div>
       <p class="small">Секторы: ${collected} · Крепости: ${income} · До ${rate} за войско${cisternIncome ? ' · Cistern: +2' : ''}${orgizReceived ? ` · Orgiz: +${orgizReceived}` : ''}${orgizPaid ? ` · Orgiz: −${orgizPaid}` : ''}</p>
-      ${orgiz && f !== orgiz && collected ? `<label>Со скольких Spice Blow собран спайс
-        <input class="field" type="number" min="0" max="${collected}" step="1" inputmode="numeric" value="${orgizPaid}" data-value="${esc(id + '-orgiz-blows')}">
-      </label>` : ''}
       ${sectors.map(({ key, collected }, index) => `
         <div class="section">Сектор ${index + 1} · собрано ${collected}</div>
         <div class="grid">

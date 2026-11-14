@@ -6,7 +6,7 @@ import { ended, statistics } from "./screens/statistics.js";
 import { choamBalance } from "./screens/charity.js";
 import { settle, spent, phaseMs, fmt } from "./timers.js";
 import { copy, persist } from "./storage.js";
-import { activate, current, fresh, key, migrateTimeline, migrateTreacherySetup, migrateTraitorSetup, skipInitialRevival, skipRevival, step } from "./game.js";
+import { activate, current, fresh, key, migrateTimeline, migrateTreacherySetup, migrateTraitorSetup, setupList, skipInitialRevival, skipRevival, step } from "./game.js";
 import { normalizeRevival } from "./revival.js";
 import { leaderPrice } from "./screens/revival.js";
 import { resizeCollection } from "./screens/spice-collection.js";
@@ -196,6 +196,13 @@ el.addEventListener('click', evt => {
 
     case 'setup':
       state.page = 'setup';
+      render();
+      break;
+
+    case 'complete-setup':
+      if (state.page !== 'setup') break;
+      for (const [id] of setupList()) state.g.checks[id] = true;
+      persist();
       render();
       break;
 

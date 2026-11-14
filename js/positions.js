@@ -40,7 +40,8 @@ export function boardPositions(game, round) {
   if (game.selected.includes('Ixians')) locations.push({ id: 'ix-mobile', name: 'Hidden Mobile Stronghold' });
   if (game.modules.discovery) locations.push({ id: 'jacurutu', name: 'Jacurutu Sietch' });
   const forts = locations.map(({ id, name, income = 0 }) => {
-    const forces = forcesAt(game, prefix + id);
+    const key = prefix + id;
+    const forces = forcesAt(game, key);
     const recorded = forces.some(force => force.count !== null);
     const legacyOwner = game.values[collection + '-owner-' + id];
     const legacy = game.selected.filter(f => game.checks[collection + f + '-' + id]);
@@ -48,8 +49,21 @@ export function boardPositions(game, round) {
     const occupants = recorded ? forces.filter(force => force.count > 0).map(force => force.faction)
       : alliance.includes(owner) && game.checks[`${collection}-shared-${id}-${ally}`] ? alliance
         : game.selected.includes(owner) ? [owner] : [];
+    const previousFaction = occupants.length === 1 ? occupants[0] : '';
+    const previousCount = forces.find(force => force.faction === previousFaction)?.count ?? '';
+    const faction = game.values[key + '-faction'];
+    const count = game.values[key + '-count'];
+    const edited = faction !== undefined || count !== undefined;
+    const selectedFaction = faction ?? previousFaction;
+    const selectedCount = count ?? previousCount;
+    if (edited) {
+      const occupied = game.selected.includes(selectedFaction) && Number(selectedCount) > 0;
+      return { id, key, name, income, faction: selectedFaction, count: selectedCount,
+        recorded: selectedFaction === 'none' || occupied, occupants: occupied ? [selectedFaction] : [] };
+    }
     const contested = occupants.length > 1 && !(occupants.length === 2 && occupants.every(f => alliance.includes(f)));
-    return { id, name, income, forces, recorded, occupants, contested,
+    return { id, key, name, income, faction: previousFaction || (recorded && !occupants.length ? 'none' : ''),
+      count: previousCount, recorded, occupants, contested,
       needsReview: !recorded && legacyOwner === undefined && legacy.length > 1 };
   });
 

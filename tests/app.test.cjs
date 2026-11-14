@@ -115,8 +115,24 @@ test('creation, faction limits, settings, preparation and escaped player names',
   assert.match(a.app.innerHTML, /&lt;Alice &amp; Bob&gt;/);
   assert.equal(a.game().advanced, false);
   assert.equal(a.game().modules.tech, false);
-  await a.prepare();
-  assert.equal(a.game().started, true);
+  a.action('settings');
+  a.change({ check: 'module-homeworlds' }, true);
+  a.action('setup');
+  assert.match(a.app.innerHTML, /data-action="start" disabled/);
+  a.click('prep', first);
+  a.action('complete-setup');
+  assert.equal(a.game().checks['general-homeworlds'], true);
+  assert.equal(a.game().checks['general-tech'], undefined);
+  assert.equal(a.game().checks['Fremen-placement'], undefined);
+  const loaded = await resume(a.game());
+  for (const tab of ['general', ...a.game().selected]) {
+    loaded.click('prep', tab);
+    const items = [...loaded.app.innerHTML.matchAll(/<input[^>]+data-check="[^"]+"[^>]*>/g)];
+    assert.ok(items.length);
+    assert.ok(items.every(([item]) => /\bchecked\b/.test(item)));
+  }
+  loaded.action('start');
+  assert.equal(loaded.game().started, true);
 });
 
 test('back/next accumulate time, pause and saving/loading preserve progress', async () => {
@@ -1090,16 +1106,25 @@ function collectionTotal(a, faction) {
   return card?.match(/<output data-collection-total>(\d+)<\/output>/)?.[1];
 }
 
-test('Spice Collection sums sectors independently and assigns each fortress to one player', async () => {
+test('Spice Collection uses post-battle fortress counts with Homeworlds disabled', async () => {
   const a = await resume(await gameWith(['Atreides', 'Guild'], {
     started: true, advanced: true, playerNames: { Atreides: 'Пол' }
   }));
-  await reach(a, 1, 7);
+  assert.equal(a.game().modules.homeworlds, false);
+  await reach(a, 1, 6);
+  a.action('next');
+  assert.equal(a.game().active, '1|6|shared|positions');
+  assert.deepEqual(
+    [...a.app.innerHTML.matchAll(/data-value="(r1p6-position-arr-[^"]+)"/g)].map(match => match[1]),
+    ['r1p6-position-arr-faction', 'r1p6-position-arr-count']
+  );
+  assert.doesNotMatch(a.app.innerHTML, /Homeworlds|r1p6-position-world-/);
+  a.change({ value: 'r1p6-position-arr-faction' }, 'Atreides');
+  a.change({ value: 'r1p6-position-arr-count' }, '2');
+  a.action('next');
   assert.equal(a.game().active, '1|7|shared|main');
   assert.match(a.app.innerHTML, /Атрейдесы · Пол/);
-  a.action('back');
-  a.change({ value: 'r1p6-position-arr-Atreides' }, '2');
-  a.action('next');
+  assert.match(a.app.innerHTML, /<table aria-label="Крепости">[\s\S]*?<th scope="row">Arrakeen<\/th><td>Атрейдесы<\/td><td>\+2<\/td>/);
   for (const [key, value] of [
     ['Atreides-troops', '2'], ['Atreides-available', '8'],
     ['Guild-troops', '2'], ['Guild-available', '9']
@@ -1111,8 +1136,8 @@ test('Spice Collection sums sectors independently and assigns each fortress to o
   assert.equal(collectionTotal(a, 'Guild'), '4');
 
   a.action('back');
-  a.change({ value: 'r1p6-position-arr-Atreides' }, '0');
-  a.change({ value: 'r1p6-position-arr-Guild' }, '1');
+  a.change({ value: 'r1p6-position-arr-faction' }, 'Guild');
+  a.change({ value: 'r1p6-position-arr-count' }, '1');
   a.action('next');
   const loaded = await resume(a.game());
   assert.equal(collectionTotal(loaded, 'Atreides'), '6');
@@ -1141,18 +1166,22 @@ test('Discovery locations pay Cistern income and transfer Orgiz spice from other
       a.change({ value: `r1p7${faction}-troops` }, '2');
       a.change({ value: `r1p7${faction}-available` }, '5');
     }
-    assert.doesNotMatch(a.app.innerHTML, /data-value="r1p7Guild-orgiz-blows"/);
-    a.change({ value: 'r1p7Atreides-orgiz-blows' }, '2');
-    a.change({ value: 'r1p7Fremen-orgiz-blows' }, '1');
-    const loaded = await resume(a.game());
-    assert.equal(collectionTotal(loaded, 'Atreides'), '2');
+    assert.doesNotMatch(a.app.innerHTML, /orgiz-blows/);
+    a.click('collection-add', 'Atreides');
+    a.change({ value: 'r1p7Atreides-sector-2-available' }, '2');
+    assert.equal(collectionTotal(a, 'Guild'), '8');
+    a.change({ value: 'r1p7Atreides-sector-2-troops' }, '1');
+    const saved = a.game();
+    saved.values['r1p7Atreides-orgiz-blows'] = '5';
+    const loaded = await resume(saved);
+    assert.equal(collectionTotal(loaded, 'Atreides'), '4');
     assert.equal(collectionTotal(loaded, 'Fremen'), '3');
     assert.equal(collectionTotal(loaded, 'Guild'), '9');
-    loaded.change({ value: 'r1p7Atreides-available' }, '1');
-    assert.equal(collectionTotal(loaded, 'Atreides'), '0');
+    loaded.change({ value: 'r1p7Atreides-sector-2-available' }, '0');
+    assert.equal(collectionTotal(loaded, 'Atreides'), '3');
     assert.equal(collectionTotal(loaded, 'Guild'), '8');
     loaded.change({ value: 'r1p7-owner-orgiz' }, '');
-    assert.equal(collectionTotal(loaded, 'Atreides'), '1');
+    assert.equal(collectionTotal(loaded, 'Atreides'), '4');
     assert.equal(collectionTotal(loaded, 'Guild'), '6');
     const disabled = loaded.game();
     disabled.modules.discovery = false;
@@ -1169,7 +1198,7 @@ test('old Spice Collection saves keep their counters, unique fortress assignment
   const a = await resume(await gameWith(['Atreides', 'Guild'], {
     started: true, advanced: true, timelineVersion: 5, cursor: 10, round: 1, phase: 7,
     checks: { 'r1p7Atreides-arr': true, 'r1p7Atreides-car': true, 'r1p7Guild-car': true },
-    values: { 'r1p7Atreides-troops': 2, 'r1p7Atreides-available': 8 },
+    values: { 'r1p6-position-arr-Atreides': 3, 'r1p7Atreides-troops': 2, 'r1p7Atreides-available': 8 },
     elapsed: { '1|7|Atreides|main': 3000, '1|7|Guild|main': 4000 }
   }));
   assert.equal(a.game().active, '1|7|shared|main');
@@ -1179,8 +1208,10 @@ test('old Spice Collection saves keep their counters, unique fortress assignment
   assert.equal(collectionTotal(a, 'Guild'), '0');
   assert.match(a.app.innerHTML, /В старой партии несколько владельцев/);
   a.action('back');
-  a.change({ value: 'r1p6-position-car-Guild' }, '1');
-  a.change({ value: 'r1p6-position-arr-Atreides' }, '0');
+  assert.match(a.app.innerHTML, /data-value="r1p6-position-arr-count"[^>]*>[^<]*(?:<option[^>]*>[^<]*<\/option>)*<option value="3" selected>/);
+  a.change({ value: 'r1p6-position-car-faction' }, 'Guild');
+  a.change({ value: 'r1p6-position-car-count' }, '1');
+  a.change({ value: 'r1p6-position-arr-faction' }, 'none');
   a.action('next');
   const loaded = await resume(a.game());
   assert.doesNotMatch(loaded.app.innerHTML, /В старой партии несколько владельцев/);
@@ -1204,7 +1235,8 @@ test('post-battle positions record Homeworld reserves and carry occupation into 
     a.app.querySelectorAll('details[data-rule]').find(details => details.dataset.rule === 'Caladan').open = true;
     const caladan = 'r1p6-position-world-Atreides';
     a.change({ value: caladan + '-Guild' }, '3');
-    assert.match(a.app.innerHTML, /<strong>Caladan<\/strong><span class="position-status">[^<]*Уточните оккупанта/);
+    assert.match(a.app.innerHTML, /<strong>Caladan<\/strong><span class="position-status">Укажите резерв хозяина/);
+    assert.match(a.app.innerHTML, /Выберите 0, если у хозяина мира не осталось войск в резерве/);
     assert.match(a.app.innerHTML, /data-rule="Caladan" open/);
     a.change({ value: caladan + '-Atreides' }, '0');
     assert.match(a.app.innerHTML, /<strong>Caladan<\/strong><span class="position-status">[^<]*Оккупант · Гильдия/);
@@ -1216,7 +1248,7 @@ test('post-battle positions record Homeworld reserves and carry occupation into 
     const loaded = await resume(a.game());
     assert.equal(loaded.game().active, '1|6|shared|positions');
     loaded.action('next');
-    assert.match(loaded.app.innerHTML, /Caladan · резерв 0<\/span>\s*<strong>Оккупант · Гильдия/);
+    assert.match(loaded.app.innerHTML, /<table aria-label="Homeworlds">[\s\S]*?<th scope="row">Caladan<\/th>\s*<td>0<\/td>\s*<td>Гильдия<\/td>/);
     loaded.action('back');
     loaded.change({ value: caladan + '-Guild' }, '0');
     assert.match(loaded.app.innerHTML, /<strong>Caladan<\/strong><span class="position-status">[^<]*Оккупант · Император/);
@@ -1228,7 +1260,13 @@ test('post-battle positions record Homeworld reserves and carry occupation into 
 test('Ecaz collection guidance distinguishes shared desert spice from full Advanced stronghold income', async () => {
   for (const advanced of [false,true]) {
     for (const alliances of [false,true]) {
-      const a=await resume(await gameWith(['Ecaz','Guild'],{started:true,advanced,alliances}));
+      const a = await resume(await gameWith(['Ecaz', 'Guild'], {
+        started: true, advanced, alliances,
+        values: {
+          'r1p6-position-arr-Ecaz': 1, 'r1p6-position-car-Ecaz': 1, 'r1p6-position-tuek-Ecaz': 1,
+          ...(alliances ? { 'r1p7-ecaz-ally': 'Guild', 'r1p6-position-arr-Guild': 2 } : {})
+        }
+      }));
       await reach(a,1,7);
       assert.equal(a.app.innerHTML.includes('Ecaz · совместный сбор'),alliances);
       assert.equal(a.app.innerHTML.includes('каждый получает из банка полный доход'),alliances && advanced);
@@ -1237,24 +1275,17 @@ test('Ecaz collection guidance distinguishes shared desert spice from full Advan
         assert.match(a.app.innerHTML,/калькулятор не делит его автоматически/i);
         if (!advanced) assert.match(a.app.innerHTML,/В Basic дополнительный доход.*не начисляется/);
       }
-      a.action('back');
-      for (const hold of ['arr','car','tuek']) a.change({value:`r1p6-position-${hold}-Ecaz`},'1');
-      a.action('next');
       a.change({value:'r1p7Ecaz-troops'},'2');
       a.change({value:'r1p7Ecaz-available'},'5');
       assert.equal(collectionTotal(a, 'Ecaz'), advanced ? '10' : '5');
       if (alliances) {
-        a.action('back');
-        a.change({ value: 'r1p7-ecaz-ally' }, 'Guild');
-        a.change({ value: 'r1p6-position-arr-Guild' }, '2');
-        a.action('next');
         a.change({ value: 'r1p7Guild-troops' }, '1');
         a.change({ value: 'r1p7Guild-available' }, '4');
         assert.equal(collectionTotal(a, 'Guild'), advanced ? '5' : '3');
         a.action('back');
-        a.change({ value: 'r1p7-ecaz-ally' }, '');
+        a.change({ value: 'r1p6-position-arr-faction' }, 'Ecaz');
+        a.change({ value: 'r1p6-position-arr-count' }, '1');
         a.action('next');
-        assert.match(a.app.innerHTML, /Спорная крепость/);
         assert.equal(collectionTotal(a, 'Guild'), '2');
       }
     }
