@@ -2,7 +2,7 @@ import { state } from "./state.js";
 import { settle } from "./timers.js";
 import { persist } from "./storage.js";
 import { startingSetup } from "./data.js";
-const timelineVersion = 6;
+const timelineVersion = 7;
 export const fresh = () => ({
   id: 'g' + Date.now(),
   created: Date.now(),
@@ -13,7 +13,8 @@ export const fresh = () => ({
   modules: {
     discovery: true,
     stronghold: true,
-    tech: true
+    tech: true,
+    homeworlds: false
   },
   checks: {},
   values: {},
@@ -89,6 +90,7 @@ export function timeline(version = timelineVersion) {
         p,
         part: 'main'
       });
+      if (p === 6 && version >= 7) a.push({ r, p, part: 'positions' });
     }
 
     a.push({
@@ -163,6 +165,7 @@ export function setupList() {
   if (state.g.modules.discovery) a.push(['general-discovery', 'Подготовить Discovery Tokens.']);
   if (state.g.modules.stronghold) a.push(['general-strongholds', 'Подготовить Stronghold Cards.']);
   if (state.g.modules.tech) a.push(['general-tech', 'Подготовить Tech Tokens.']);
+  if (state.g.modules.homeworlds) a.push(['general-homeworlds', 'Разложить карты Homeworlds стороной High и разместить резервы на дисках своих миров.' + (state.g.selected.includes('Emperor') ? state.g.advanced ? ' Обычные войска Императора начинают на Kaitain, Sardaukar — на Salusa Secundus.' : ' В Basic все резервы Императора начинают на Kaitain.' : '')]);
 
   for (const f of state.g.selected) {
     const x = startingSetup[f];

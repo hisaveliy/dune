@@ -1,13 +1,9 @@
+import { boardPositions } from "../positions.js";
+import { fortStatus, homeworldStatus } from "./positions.js";
 import { N } from "../data.js";
 import { roundOrder } from "../game.js";
 import { state } from "../state.js";
-import { accordion, c, check, counter, esc, extra, note, panel, select, v } from "../ui.js";
-
-const strongholds = [
-  { key: 'arr', name: 'Arrakeen', income: 2 },
-  { key: 'car', name: 'Carthag', income: 2 },
-  { key: 'tuek', name: 'Tuek’s Sietch', income: 1 }
-];
+import { accordion, counter, esc, extra, note, panel, select, v } from "../ui.js";
 
 function sectorKey(id, index) {
   return index === 0 ? id : `${id}-sector-${index + 1}`;
@@ -32,36 +28,21 @@ export function spiceCollection(round) {
   const options = order.map(f => [f, g.playerNames[f] ? `${N[f]} · ${g.playerNames[f]}` : N[f]]);
   const cistern = g.modules.discovery ? v(base + '-owner-cistern', '') : '';
   const orgiz = g.modules.discovery ? v(base + '-owner-orgiz', '') : '';
-  const hasEcazAlliance = g.alliances && order.includes('Ecaz');
-  const allies = hasEcazAlliance ? options.filter(([f]) => f !== 'Ecaz') : [];
-  const ally = v(base + '-ecaz-ally', '');
-  const alliance = allies.some(([f]) => f === ally) ? ['Ecaz', ally] : [];
-  const forts = strongholds.map(fort => {
-    const id = `${base}-owner-${fort.key}`;
-    const legacyOwners = order.filter(f => c(`${base}${f}-${fort.key}`));
-    const fallback = legacyOwners.length === 1 ? legacyOwners[0] : '';
-    const owner = v(id, fallback);
-    const sharedKey = `${base}-shared-${fort.key}-${ally}`;
-    const canShare = alliance.includes(owner);
-    const occupants = canShare && c(sharedKey) ? alliance : [owner];
-    return { ...fort, id, fallback, sharedKey, canShare, occupants,
-      needsReview: legacyOwners.length > 1 && v(id, undefined) === undefined };
-  });
-
+  const { forts, homeworlds } = boardPositions(g, round);
   const assignments = panel('Крепости', `
-    <p class="small">${g.advanced
-      ? 'Выберите, кто занимает каждую крепость и получает её доход из банка.'
-      : 'В Basic крепости влияют на скорость сбора. Доход из банка за крепости не начисляется.'}</p>
-    ${forts.map(fort => `<label>${fort.name}${g.advanced ? ` · +${fort.income} спайса` : ''}
-      ${select(fort.id, [['', 'Никто'], ...options], fort.fallback, fort.name)}
-    </label>${fort.needsReview ? note('В старом сохранении указано несколько владельцев. Уточните, кто занимает эту крепость.') : ''}`).join('')}
-    ${hasEcazAlliance ? accordion('Ecaz · совместный сбор', `
-      <label>Союзник Ecaz${select(base + '-ecaz-ally', [['', 'Нет союзника'], ...allies], '', 'Союзник Ecaz')}</label>
-      <p>Выберите одного из союзников владельцем крепости и отметьте совместное занятие, если в ней есть войска обоих. ${g.advanced ? 'В Advanced каждый получает из банка полный доход этой крепости.' : 'В Basic дополнительный доход за занятие этих крепостей не начисляется.'}</p>
-      ${forts.filter(fort => fort.canShare).map(fort => check(fort.sharedKey, `Ecaz и ${N[ally]} вместе занимают ${fort.name}`)).join('')}
+    <p class="small">Контроль указан на шаге «Войска после боя». Для исправления вернитесь назад.</p>
+    ${forts.filter(fort => fort.income).map(fort => `<div class="row">
+      <span>${fort.name}${g.advanced ? ` · +${fort.income} спайса` : ''}</span><strong>${fortStatus(fort)}</strong>
+    </div>`).join('')}
+    ${g.alliances && order.includes('Ecaz') ? accordion('Ecaz · совместный сбор', `
       <p>Спайс, собранный вместе в пустыне, делите по договорённости. Если не договорились, разделите поровну. Нечётный остаток получает союзник Ecaz. Калькулятор не делит его автоматически.</p>
+      ${g.advanced ? '<p>В Advanced каждый получает из банка полный доход совместно занятой крепости.</p>' : '<p>В Basic дополнительный доход за занятие этих крепостей не начисляется.</p>'}
     `) : ''}
   `);
+  const occupation = homeworlds.length ? panel('Homeworlds', homeworlds.map(world => `
+    <div class="row"><span>${world.name}${world.recorded ? ' · резерв ' + world.forces.find(force => force.faction === world.native).count : ''}</span>
+    <strong>${homeworldStatus(world)}</strong></div>
+  `).join('')) : '';
 
   const discoveries = g.modules.discovery ? panel('Discovery-локации', `
     <p class="small">Выбирайте игрока, только если его войска находятся внутри раскрытой локации.</p>
@@ -76,8 +57,8 @@ export function spiceCollection(round) {
 
   const collections = options.map(([f, player]) => {
     const id = base + f;
-    const occupied = forts.filter(fort => fort.occupants.includes(f));
-    const rate = occupied.some(fort => fort.key === 'arr' || fort.key === 'car') ? 3 : 2;
+    const occupied = forts.filter(fort => !fort.contested && fort.occupants.includes(f));
+    const rate = occupied.some(fort => fort.id === 'arr' || fort.id === 'car') ? 3 : 2;
     const income = g.advanced ? occupied.reduce((sum, fort) => sum + fort.income, 0) : 0;
     const sectors = Array.from({ length: v(id + '-sector-count', 1) }, (_, index) => {
       const key = sectorKey(id, index);
@@ -114,5 +95,5 @@ export function spiceCollection(round) {
     </section>`;
   }).join('');
 
-  return assignments + discoveries + players + accordion('Правила сбора спайса', note('Для каждого места сбора укажите войска и спайс в том же секторе. За войско можно собрать до 2 спайса, а при занятии Arrakeen или Carthag — до 3. Сбор в секторе ограничен запасом спайса в нём. Доход крепостей начисляется отдельно, один раз за фазу.'));
+  return assignments + occupation + discoveries + players + accordion('Правила сбора спайса', note('Для каждого места сбора укажите войска и спайс в том же секторе. За войско можно собрать до 2 спайса, а при занятии Arrakeen или Carthag — до 3. Сбор в секторе ограничен запасом спайса в нём. Доход крепостей начисляется отдельно, один раз за фазу.'));
 }

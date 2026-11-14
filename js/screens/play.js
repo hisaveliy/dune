@@ -4,6 +4,7 @@ import { charity, inflationMentat } from "./charity.js";
 import { bidding } from "./bidding.js";
 import { revival, ecazAmbassadors } from "./revival.js";
 import { battle } from "./battle.js";
+import { positions } from "./positions.js";
 import { accordion, allExtra, check, counter, esc, extra, note, panel, select, v } from "../ui.js";
 import { ability, N, P } from "../data.js";
 import { state } from "../state.js";
@@ -103,7 +104,7 @@ export function phaseContent(s) {
     `)}${extra(f, 5)}`;
   }
 
-  if (s.p === 6) return battle(s);
+  if (s.p === 6) return s.part === 'positions' ? positions(s.r) : battle(s);
 
   if (s.p === 7) return spiceCollection(s.r);
 

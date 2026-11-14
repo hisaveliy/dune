@@ -344,7 +344,7 @@ test('Bidding preparation has actual tasks, normal auction rules and Richese exc
 });
 
 test('legacy Charity cursors migrate once while preserving historic player time and inputs', async () => {
-  for (const [cursor, expectedCursor, phase] of [[33, 17, 2], [35, 18, 3], [55, 27, 9]]) {
+  for (const [cursor, expectedCursor, phase] of [[33, 18, 2], [35, 19, 3], [55, 29, 9]]) {
     const legacy = await gameWith(['Fremen', 'Atreides', 'Harkonnen', 'Emperor'], {
       started: true, cursor, round: 2, phase,
       values: { 'r2p2Atreides-bracket': '1' },
@@ -353,7 +353,7 @@ test('legacy Charity cursors migrate once while preserving historic player time 
     delete legacy.timelineVersion;
     const a = await resume(legacy);
     assert.equal(a.game().cursor, expectedCursor);
-    assert.equal(a.game().timelineVersion, 6);
+    assert.equal(a.game().timelineVersion, 7);
     assert.deepEqual(a.game().elapsed, legacy.elapsed);
     assert.equal(a.game().values['r2p2Atreides-bracket'], '1');
     if (phase !== 9) a.action('home');
@@ -541,7 +541,7 @@ test('round screens omit completion confirmations but retain concrete checklists
     if (a.game().phase === 1) assert.match(a.app.innerHTML, /data-check="r1p1[AB]-spice-storm"/);
     if (a.game().phase === 3) assert.match(a.app.innerHTML, /data-check="r1p3-hands"/);
     if (a.game().phase === 4) assert.match(a.app.innerHTML, /ЦЕНА ВОСКРЕШЕНИЯ ВОЙСК/);
-    if (a.game().phase === 7) assert.match(a.app.innerHTML, /data-value="r1p7-owner-arr"/);
+    if (a.game().phase === 7) assert.match(a.app.innerHTML, /Контроль указан на шаге «Войска после боя»/);
     if (a.game().phase === 8) {
       assert.match(a.app.innerHTML, /Jacurutu Sietch/);
       assert.match(a.app.innerHTML, /[Сс]оветниц/);
@@ -693,14 +693,14 @@ test('Bidding is one screen between Charity and Revival, retaining preparation c
 });
 
 test('both old Bidding steps and subsequent positions migrate from timeline versions one and two', async () => {
-  for (const [version, cursor, target, phase] of [[1,35,18,3],[1,36,18,3],[2,29,18,3],[2,30,18,3],[1,37,19,4],[2,31,19,4]]) {
+  for (const [version, cursor, target, phase] of [[1,35,19,3],[1,36,19,3],[2,29,19,3],[2,30,19,3],[1,37,20,4],[2,31,20,4]]) {
     const legacy = await gameWith(['Fremen','Atreides','Harkonnen','Emperor'], {
       started:true, timelineVersion:version, cursor, round:2, phase,
       checks:{'r2p3-hands':true,'r2p3-cards':true},
       elapsed:{'2|3|shared|prepare':3000,'2|3|shared|auction':5000}
     });
     const a = await resume(legacy);
-    assert.equal(a.game().timelineVersion,6);
+    assert.equal(a.game().timelineVersion,7);
     assert.equal(a.game().cursor,target);
     assert.deepEqual(a.game().elapsed,legacy.elapsed);
     if (phase === 4) a.action('back');
@@ -710,7 +710,7 @@ test('both old Bidding steps and subsequent positions migrate from timeline vers
     a.tick(2000);
     a.action('home');
     const loaded = await resume(a.game());
-    assert.equal(loaded.game().cursor,18);
+    assert.equal(loaded.game().cursor,19);
     assert.equal(loaded.clocks.step.textContent,'00:00:10');
     assert.equal(loaded.game().elapsed['2|3|shared|prepare'],3000);
     assert.equal(loaded.game().elapsed['2|3|shared|auction'],5000);
@@ -978,6 +978,9 @@ test('Battle updates opposing-faction exceptions and outside effects without res
   assert.equal(loaded.clocks.step.textContent,'00:00:05');
   assert.match(loaded.app.innerHTML,/Спайс для полной силы не нужен/);
   loaded.action('next');
+  assert.equal(loaded.game().active, '1|6|shared|positions');
+  assert.equal(loaded.clocks.step.textContent, '00:00:05');
+  loaded.action('next');
   assert.equal(loaded.game().phase,7);
 });
 
@@ -1094,7 +1097,9 @@ test('Spice Collection sums sectors independently and assigns each fortress to o
   await reach(a, 1, 7);
   assert.equal(a.game().active, '1|7|shared|main');
   assert.match(a.app.innerHTML, /Атрейдесы · Пол/);
-  a.change({ value: 'r1p7-owner-arr' }, 'Atreides');
+  a.action('back');
+  a.change({ value: 'r1p6-position-arr-Atreides' }, '2');
+  a.action('next');
   for (const [key, value] of [
     ['Atreides-troops', '2'], ['Atreides-available', '8'],
     ['Guild-troops', '2'], ['Guild-available', '9']
@@ -1105,7 +1110,10 @@ test('Spice Collection sums sectors independently and assigns each fortress to o
   assert.equal(collectionTotal(a, 'Atreides'), '10');
   assert.equal(collectionTotal(a, 'Guild'), '4');
 
-  a.change({ value: 'r1p7-owner-arr' }, 'Guild');
+  a.action('back');
+  a.change({ value: 'r1p6-position-arr-Atreides' }, '0');
+  a.change({ value: 'r1p6-position-arr-Guild' }, '1');
+  a.action('next');
   const loaded = await resume(a.game());
   assert.equal(collectionTotal(loaded, 'Atreides'), '6');
   assert.equal(collectionTotal(loaded, 'Guild'), '8');
@@ -1124,7 +1132,7 @@ test('Discovery locations pay Cistern income and transfer Orgiz spice from other
     const a = await resume(await gameWith(['Atreides', 'Guild', 'Fremen'], { started: true, advanced }));
     await reach(a, 1, 6);
     assert.match(a.app.innerHTML, /Jacurutu Sietch.*за каждое войско противника/);
-    a.action('next');
+    await reach(a, 1, 7);
     assert.match(a.app.innerHTML, /Cistern · \+2/);
     assert.doesNotMatch(a.app.innerHTML, /Jacurutu Sietch/);
     a.change({ value: 'r1p7-owner-cistern' }, 'Guild');
@@ -1165,18 +1173,56 @@ test('old Spice Collection saves keep their counters, unique fortress assignment
     elapsed: { '1|7|Atreides|main': 3000, '1|7|Guild|main': 4000 }
   }));
   assert.equal(a.game().active, '1|7|shared|main');
-  assert.equal(a.game().cursor, 9);
+  assert.equal(a.game().cursor, 10);
   assert.equal(a.clocks.step.textContent, '00:00:07');
   assert.equal(collectionTotal(a, 'Atreides'), '8');
   assert.equal(collectionTotal(a, 'Guild'), '0');
-  assert.match(a.app.innerHTML, /В старом сохранении указано несколько владельцев/);
-  a.change({ value: 'r1p7-owner-car' }, 'Guild');
-  a.change({ value: 'r1p7-owner-arr' }, '');
+  assert.match(a.app.innerHTML, /В старой партии несколько владельцев/);
+  a.action('back');
+  a.change({ value: 'r1p6-position-car-Guild' }, '1');
+  a.change({ value: 'r1p6-position-arr-Atreides' }, '0');
+  a.action('next');
   const loaded = await resume(a.game());
-  assert.doesNotMatch(loaded.app.innerHTML, /В старом сохранении указано несколько владельцев/);
+  assert.doesNotMatch(loaded.app.innerHTML, /В старой партии несколько владельцев/);
   assert.equal(collectionTotal(loaded, 'Atreides'), '4');
   assert.equal(collectionTotal(loaded, 'Guild'), '2');
   assert.equal(loaded.clocks.step.textContent, '00:00:07');
+});
+
+test('post-battle positions record Homeworld reserves and carry occupation into Spice Collection', async () => {
+  for (const advanced of [false, true]) {
+    const game = await gameWith(['Atreides', 'Emperor', 'Guild'], { started: true, advanced });
+    game.modules.homeworlds = true;
+    const a = await resume(game);
+    await reach(a, 1, 6);
+    a.action('next');
+    assert.match(a.app.innerHTML, /Войска после боя/);
+    assert.match(a.app.innerHTML, /Kaitain/);
+    assert.equal(a.app.innerHTML.includes('Salusa Secundus'), advanced);
+    assert.doesNotMatch(a.app.innerHTML, /data-rule="Ix ·/);
+
+    a.app.querySelectorAll('details[data-rule]').find(details => details.dataset.rule === 'Caladan').open = true;
+    const caladan = 'r1p6-position-world-Atreides';
+    a.change({ value: caladan + '-Guild' }, '3');
+    assert.match(a.app.innerHTML, /<strong>Caladan<\/strong><span class="position-status">[^<]*Уточните оккупанта/);
+    assert.match(a.app.innerHTML, /data-rule="Caladan" open/);
+    a.change({ value: caladan + '-Atreides' }, '0');
+    assert.match(a.app.innerHTML, /<strong>Caladan<\/strong><span class="position-status">[^<]*Оккупант · Гильдия/);
+    a.change({ value: caladan + '-Emperor' }, '2');
+    assert.match(a.app.innerHTML, /<strong>Caladan<\/strong><span class="position-status">[^<]*Уточните оккупанта/);
+    a.change({ value: caladan + '-occupier' }, 'none');
+    assert.match(a.app.innerHTML, /<strong>Caladan<\/strong><span class="position-status">[^<]*Без оккупанта/);
+    a.change({ value: caladan + '-occupier' }, 'Guild');
+    const loaded = await resume(a.game());
+    assert.equal(loaded.game().active, '1|6|shared|positions');
+    loaded.action('next');
+    assert.match(loaded.app.innerHTML, /Caladan · резерв 0<\/span>\s*<strong>Оккупант · Гильдия/);
+    loaded.action('back');
+    loaded.change({ value: caladan + '-Guild' }, '0');
+    assert.match(loaded.app.innerHTML, /<strong>Caladan<\/strong><span class="position-status">[^<]*Оккупант · Император/);
+    loaded.action('back');
+    assert.match(loaded.app.innerHTML, /Выберите две фракции/);
+  }
 });
 
 test('Ecaz collection guidance distinguishes shared desert spice from full Advanced stronghold income', async () => {
@@ -1191,17 +1237,24 @@ test('Ecaz collection guidance distinguishes shared desert spice from full Advan
         assert.match(a.app.innerHTML,/калькулятор не делит его автоматически/i);
         if (!advanced) assert.match(a.app.innerHTML,/В Basic дополнительный доход.*не начисляется/);
       }
-      for (const hold of ['arr','car','tuek']) a.change({value:'r1p7-owner-'+hold},'Ecaz');
+      a.action('back');
+      for (const hold of ['arr','car','tuek']) a.change({value:`r1p6-position-${hold}-Ecaz`},'1');
+      a.action('next');
       a.change({value:'r1p7Ecaz-troops'},'2');
       a.change({value:'r1p7Ecaz-available'},'5');
       assert.equal(collectionTotal(a, 'Ecaz'), advanced ? '10' : '5');
       if (alliances) {
+        a.action('back');
         a.change({ value: 'r1p7-ecaz-ally' }, 'Guild');
-        a.change({ check: 'r1p7-shared-arr-Guild' }, true);
+        a.change({ value: 'r1p6-position-arr-Guild' }, '2');
+        a.action('next');
         a.change({ value: 'r1p7Guild-troops' }, '1');
         a.change({ value: 'r1p7Guild-available' }, '4');
         assert.equal(collectionTotal(a, 'Guild'), advanced ? '5' : '3');
+        a.action('back');
         a.change({ value: 'r1p7-ecaz-ally' }, '');
+        a.action('next');
+        assert.match(a.app.innerHTML, /Спорная крепость/);
         assert.equal(collectionTotal(a, 'Guild'), '2');
       }
     }
@@ -1320,7 +1373,7 @@ test('old Shipment and Movement saves retain the correct faction and combine its
       elapsed: { '2|5|Guild|ship': 2000, '2|5|Guild|move': 1000, '2|5|Ecaz|ship': 4000, '2|5|Ecaz|move': 3000 }
     });
     const a = await resume(legacy);
-    assert.equal(a.game().cursor, 20);
+    assert.equal(a.game().cursor, 21);
     assert.equal(a.game().active, '2|5|Ecaz|main');
     assert.equal(a.clocks.step.textContent, '00:00:07');
     assert.equal(a.clocks.phase.textContent, '00:00:10');
