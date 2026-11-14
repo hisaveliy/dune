@@ -5,6 +5,13 @@ import { esc, panel, select } from "../ui.js";
 
 const counts = [['', 'Не указано'], ...Array.from({ length: 21 }, (_, count) => [count, count])];
 const fortressCounts = counts.filter(([count]) => count !== 0);
+const discoveryHints = {
+  jacurutu: 'Считается крепостью. Победитель боя здесь получает по 1 спайсу за каждое войско противника, которое не было выставлено на диске и отправилось в Tanks.',
+  cistern: 'Фракция, занимающая Cistern в Spice Collection, получает 2 спайса из банка.',
+  orgiz: 'В Spice Collection фракция, занимающая станцию, забирает по 1 спайсу из каждого Spice Blow, с которого собрали спайс.',
+  'testing-station': 'В фазе Storm фракция, занимающая станцию, может увеличить или уменьшить движение бури на 1 сектор. На Weather Control этот эффект не влияет.',
+  shrine: 'Пока фракция занимает Shrine, она может сыграть Truthtrance как Karama и Karama как Truthtrance.'
+};
 
 function fields(forces, native) {
   return `<div class="grid">${forces.map(({ faction, key }) => `<label>${N[faction]}${faction === native ? ' · резерв' : ''}
@@ -49,7 +56,7 @@ export function positions(round) {
       return locationRow(fort.name, summary, `<div class="grid">
         <label>Фракция${select(fort.key + '-faction', factions, fort.faction)}</label>
         <label>Количество войск${select(fort.key + '-count', fortressCounts, fort.count)}</label>
-      </div>`);
+      </div>` + (fort.id === 'jacurutu' ? `<p class="muted">${discoveryHints.jacurutu}</p>` : ''));
     }).join('')}
   `) + (homeworlds.length ? panel('Homeworlds', `
     <p class="muted">Нажмите на мир, чтобы указать резерв и чужие войска.</p>
@@ -66,8 +73,9 @@ export function positions(round) {
     }).join('')}
   `) : '') + (discoveries.length ? panel('Discovery-локации', `
     <p class="muted">Укажите, чьи войска находятся внутри раскрытых локаций.</p>
-    ${discoveries.map(({ name, owner, key }) => locationRow(name, N[owner] || 'Не раскрыта или пуста',
+    ${discoveries.map(({ id, name, owner, key }) => locationRow(name, N[owner] || 'Не раскрыта или пуста',
       `<label>Фракция${select(key, [['', 'Не раскрыта или пуста'], ...playerOptions], '', name)}</label>`
+      + `<p class="muted">${discoveryHints[id]}</p>`
     )).join('')}
   `) : '');
 }
