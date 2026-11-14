@@ -222,43 +222,48 @@ p {
 }
 
 .collection-summary {
-  padding:0;
+  padding:0 14px;
   overflow:hidden
+}
+
+.collection-heading {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:8px;
+  padding:11px 23px 10px 0
+}
+
+.collection-heading .section {
+  margin:0;
+  color:var(--gold)
+}
+
+.collection-heading .small {
+  letter-spacing:.04em
 }
 
 .collection-row {
   display:grid;
-  grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr);
-  align-items:stretch;
-  min-height:48px;
+  grid-template-columns:minmax(0,1fr) 78px;
+  align-items:center;
+  min-height:57px;
   overflow-wrap:anywhere
 }
 
-.collection-row > * {
+.collection-player {
   display:grid;
-  align-content:center;
-  padding:8px 5px;
-  text-align:center
+  padding:8px 0
 }
 
-.collection-row > :first-child {
-  padding-left:10px;
-  text-align:left
+.collection-name {
+  font:19px/1.16 Georgia,serif
 }
 
-.collection-row > * + * {
-  border-left:1px solid var(--line)
-}
-
-.collection-heading {
-  font-size:13px;
-  line-height:1.25
-}
-
-.collection-heading small {
-  margin-top:3px;
+.collection-row .collection-rate {
+  margin-top:2px;
   color:var(--muted);
-  font-weight:400
+  font-size:12px
 }
 
 .collection-faction {
@@ -278,53 +283,54 @@ p {
   outline-offset:-2px
 }
 
-.collection-row .collection-rate,
-.collection-row .collection-payout {
-  font-size:20px;
-  font-weight:700;
-  font-variant-numeric:tabular-nums
-}
-
 .collection-row .collection-payout {
   position:relative;
-  padding-inline:18px;
-  color:var(--muted)
+  padding-right:25px;
+  color:var(--muted);
+  font:500 23px/1 ui-monospace,monospace;
+  text-align:right
 }
 
-details .collection-row .collection-payout,
-.collection-sources strong {
+.collection-faction > summary .collection-payout {
   color:var(--gold)
 }
 
-details .collection-payout::after {
+.collection-faction > summary .collection-payout::after {
   content:"";
   position:absolute;
   top:50%;
-  right:10px;
-  width:6px;
-  height:6px;
-  border:solid var(--text);
+  right:3px;
+  width:5px;
+  height:5px;
+  border:solid var(--muted);
   border-width:0 2px 2px 0;
   transform:translateY(-50%) rotate(-45deg)
 }
 
-details[open] .collection-payout::after {
+.collection-faction[open] > summary .collection-payout::after {
   transform:translateY(-70%) rotate(45deg)
 }
 
 .collection-sources {
-  margin:0;
-  padding:0 12px;
+  margin:0 0 8px;
+  padding:3px 12px;
+  border:1px solid #78614580;
+  border-radius:7px;
   list-style:none;
-  background:var(--bg)
+  background:#231f19;
+  font-size:12px
 }
 
 .collection-sources li {
   display:flex;
   justify-content:space-between;
   gap:8px;
-  padding:8px 0;
-  border-top:1px solid var(--line)
+  padding:5px 0;
+  border-top:1px solid #78614555
+}
+
+.collection-sources li:first-child {
+  border-top:0
 }
 
 .collection-reader {

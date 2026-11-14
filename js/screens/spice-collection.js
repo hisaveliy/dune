@@ -56,8 +56,10 @@ export function spiceCollection(round) {
         .map(world => ({ name: world.name + ' · оккупация', income: world.income }))
     ];
     const income = sources.reduce((sum, source) => sum + source.income, 0);
-    const row = `<strong>${esc(player)}</strong>
-      <span class="collection-rate"><span class="collection-reader">С поля, до </span>${rate}<span class="collection-reader"> спайса за войско</span></span>
+    const row = `<span class="collection-player">
+        <span class="collection-name">${esc(player)}</span>
+        <span class="collection-rate">С поля · до ${rate} спайса за войско</span>
+      </span>
       <span class="collection-payout"><span class="collection-reader">Из банка, спайса </span><output data-collection-income>${income}</output></span>`;
     return income ? `<details class="collection-faction" data-collection-faction="${esc(f)}" data-rule="collection-${esc(f)}">
       <summary class="collection-row">${row}</summary>
@@ -67,8 +69,8 @@ export function spiceCollection(round) {
   }).join('');
 
   return `<section class="panel collection-summary" aria-label="Сбор спайса по фракциям">
-    <div class="collection-row collection-heading" aria-hidden="true">
-      <strong>Фракция</strong><strong>С поля<small>макс. за войско</small></strong><strong>Из банка<small>спайса</small></strong>
+    <div class="collection-heading">
+      <span class="section">Сбор по фракциям</span><span class="small" aria-hidden="true">ИЗ БАНКА</span>
     </div>
     ${players}
   </section>`

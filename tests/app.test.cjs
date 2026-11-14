@@ -1164,7 +1164,7 @@ test('Spice Collection uses post-battle fortress counts with Homeworlds disabled
   assert.match(a.app.innerHTML, /<table aria-label="Крепости">[\s\S]*?<th scope="row">Arrakeen<\/th><td>Атрейдесы<\/td><td>\+2<\/td>/);
   assert.doesNotMatch(a.app.innerHTML, /<select|data-number|collection-add/);
   const atreides = a.app.innerHTML.split('data-collection-faction="Atreides"')[1].split('</details>')[0];
-  assert.match(atreides, /до <\/span>3<span[^>]*> спайса за войско/);
+  assert.match(atreides, /С поля · до 3 спайса за войско/);
   assert.match(atreides, /<span>Arrakeen<\/span><strong>\+2<\/strong>/);
   assert.match(a.app.innerHTML, /<div class="collection-row collection-faction" data-collection-faction="Guild">/);
   assert.match(a.app.innerHTML, /<details[^>]*data-rule="Контроль локаций">/);
