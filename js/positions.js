@@ -21,6 +21,13 @@ const homeworldNames = {
   Moritani: 'Grumman'
 };
 
+const discoveryLocations = [
+  { id: 'cistern', name: 'Cistern', income: 2 },
+  { id: 'orgiz', name: 'Orgiz Processing Station' },
+  { id: 'testing-station', name: 'Ecological Testing Station' },
+  { id: 'shrine', name: 'Shrine' }
+];
+
 function forcesAt(game, id) {
   return game.selected.map(faction => {
     const key = id + '-' + faction;
@@ -74,6 +81,11 @@ export function boardPositions(game, round) {
   }
   return {
     forts,
+    discoveries: game.modules.discovery ? discoveryLocations.map(location => {
+      const key = collection + '-owner-' + location.id;
+      const owner = game.values[key];
+      return { ...location, key, owner: game.selected.includes(owner) ? owner : '' };
+    }) : [],
     homeworlds: worlds.map(({ id, name, native }) => {
       const key = prefix + 'world-' + id;
       const forces = forcesAt(game, key);

@@ -37,8 +37,9 @@ export function homeworldStatus(world) {
 
 export function positions(round) {
   const g = state.g;
-  const { forts, homeworlds } = boardPositions(g, round);
-  const factions = [['', 'Не указано'], ['none', 'Пусто'], ...g.selected.map(f => [f, N[f]])];
+  const { forts, homeworlds, discoveries } = boardPositions(g, round);
+  const playerOptions = g.selected.map(f => [f, N[f]]);
+  const factions = [['', 'Не указано'], ['none', 'Пусто'], ...playerOptions];
   return panel('Войска после боя', `
     <p class="muted">Нажмите на крепость, чтобы указать войска. Учитывайте только бойцов.</p>
     ${forts.map(fort => {
@@ -63,5 +64,10 @@ export function positions(round) {
         + (!world.recorded && world.visitors.length ? '<p class="muted">Выберите 0, если у хозяина мира не осталось войск в резерве.</p>' : '')
         + occupation);
     }).join('')}
+  `) : '') + (discoveries.length ? panel('Discovery-локации', `
+    <p class="muted">Укажите, чьи войска находятся внутри раскрытых локаций.</p>
+    ${discoveries.map(({ name, owner, key }) => locationRow(name, N[owner] || 'Не раскрыта или пуста',
+      `<label>Фракция${select(key, [['', 'Не раскрыта или пуста'], ...playerOptions], '', name)}</label>`
+    )).join('')}
   `) : '');
 }

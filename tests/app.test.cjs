@@ -1101,9 +1101,9 @@ test('each new Traitor task is required for readiness and completed old preparat
   assert.doesNotMatch(loaded.app.innerHTML,/data-action="start" disabled/);
 });
 
-function collectionTotal(a, faction) {
+function collectionIncome(a, faction) {
   const card = a.app.innerHTML.split(`data-collection-faction="${faction}"`)[1]?.split('</section>')[0];
-  return card?.match(/<output data-collection-total>(\d+)<\/output>/)?.[1];
+  return card?.match(/<output data-collection-income>(\d+)<\/output>/)?.[1];
 }
 
 test('Spice Collection uses post-battle fortress counts with Homeworlds disabled', async () => {
@@ -1125,76 +1125,52 @@ test('Spice Collection uses post-battle fortress counts with Homeworlds disabled
   assert.equal(a.game().active, '1|7|shared|main');
   assert.match(a.app.innerHTML, /Атрейдесы · Пол/);
   assert.match(a.app.innerHTML, /<table aria-label="Крепости">[\s\S]*?<th scope="row">Arrakeen<\/th><td>Атрейдесы<\/td><td>\+2<\/td>/);
-  for (const [key, value] of [
-    ['Atreides-troops', '2'], ['Atreides-available', '8'],
-    ['Guild-troops', '2'], ['Guild-available', '9']
-  ]) a.change({ value: 'r1p7' + key }, value);
-  a.click('collection-add', 'Atreides');
-  a.change({ value: 'r1p7Atreides-sector-2-troops' }, '1');
-  a.change({ value: 'r1p7Atreides-sector-2-available' }, '2');
-  assert.equal(collectionTotal(a, 'Atreides'), '10');
-  assert.equal(collectionTotal(a, 'Guild'), '4');
+  assert.doesNotMatch(a.app.innerHTML, /<select|data-number|collection-add/);
+  assert.match(a.app.innerHTML, /до <strong>3 спайса за войско/);
+  assert.equal(collectionIncome(a, 'Atreides'), '2');
+  assert.equal(collectionIncome(a, 'Guild'), '0');
 
   a.action('back');
   a.change({ value: 'r1p6-position-arr-faction' }, 'Guild');
   a.change({ value: 'r1p6-position-arr-count' }, '1');
   a.action('next');
   const loaded = await resume(a.game());
-  assert.equal(collectionTotal(loaded, 'Atreides'), '6');
-  assert.equal(collectionTotal(loaded, 'Guild'), '8');
-  loaded.click('collection-remove', 'Atreides');
-  assert.doesNotMatch(loaded.app.innerHTML, /r1p7Atreides-sector-2/);
-  loaded.click('collection-add', 'Atreides');
-  assert.equal(collectionTotal(loaded, 'Atreides'), '4');
-  loaded.action('next');
-  assert.equal(loaded.game().phase, 8);
-  loaded.action('back');
-  assert.equal(collectionTotal(loaded, 'Guild'), '8');
+  assert.equal(collectionIncome(loaded, 'Atreides'), '0');
+  assert.equal(collectionIncome(loaded, 'Guild'), '2');
 });
 
-test('Discovery locations pay Cistern income and transfer Orgiz spice from other collectors', async () => {
+test('Discovery occupation is entered after battles and carried into the collection guide', async () => {
   for (const advanced of [false, true]) {
     const a = await resume(await gameWith(['Atreides', 'Guild', 'Fremen'], { started: true, advanced }));
     await reach(a, 1, 6);
     assert.match(a.app.innerHTML, /Jacurutu Sietch.*за каждое войско противника/);
-    await reach(a, 1, 7);
-    assert.match(a.app.innerHTML, /Cistern · \+2/);
-    assert.doesNotMatch(a.app.innerHTML, /Jacurutu Sietch/);
-    a.change({ value: 'r1p7-owner-cistern' }, 'Guild');
-    a.change({ value: 'r1p7-owner-orgiz' }, 'Guild');
-    for (const faction of ['Atreides', 'Guild', 'Fremen']) {
-      a.change({ value: `r1p7${faction}-troops` }, '2');
-      a.change({ value: `r1p7${faction}-available` }, '5');
+    a.action('next');
+    assert.equal(a.game().active, '1|6|shared|positions');
+    for (const id of ['cistern', 'orgiz', 'shrine', 'testing-station']) {
+      assert.match(a.app.innerHTML, new RegExp(`data-value="r1p7-owner-${id}"`));
     }
-    assert.doesNotMatch(a.app.innerHTML, /orgiz-blows/);
-    a.click('collection-add', 'Atreides');
-    a.change({ value: 'r1p7Atreides-sector-2-available' }, '2');
-    assert.equal(collectionTotal(a, 'Guild'), '8');
-    a.change({ value: 'r1p7Atreides-sector-2-troops' }, '1');
-    const saved = a.game();
-    saved.values['r1p7Atreides-orgiz-blows'] = '5';
-    const loaded = await resume(saved);
-    assert.equal(collectionTotal(loaded, 'Atreides'), '4');
-    assert.equal(collectionTotal(loaded, 'Fremen'), '3');
-    assert.equal(collectionTotal(loaded, 'Guild'), '9');
-    loaded.change({ value: 'r1p7Atreides-sector-2-available' }, '0');
-    assert.equal(collectionTotal(loaded, 'Atreides'), '3');
-    assert.equal(collectionTotal(loaded, 'Guild'), '8');
-    loaded.change({ value: 'r1p7-owner-orgiz' }, '');
-    assert.equal(collectionTotal(loaded, 'Atreides'), '4');
-    assert.equal(collectionTotal(loaded, 'Guild'), '6');
+    a.change({ value: 'r1p7-owner-cistern' }, 'Guild');
+    a.change({ value: 'r1p7-owner-orgiz' }, 'Atreides');
+    a.action('next');
+    const loaded = await resume(a.game());
+    assert.match(loaded.app.innerHTML, /<table aria-label="Discovery-локации">/);
+    assert.match(loaded.app.innerHTML, /<th scope="row">Cistern<\/th><td>Гильдия<\/td>/);
+    assert.match(loaded.app.innerHTML, /Передайте фракции «Атрейдесы» по 1 спайсу/);
+    assert.doesNotMatch(loaded.app.innerHTML, /<select|data-number|orgiz-blows/);
+    assert.equal(collectionIncome(loaded, 'Guild'), '2');
+    assert.equal(collectionIncome(loaded, 'Atreides'), '0');
+
     const disabled = loaded.game();
     disabled.modules.discovery = false;
-    disabled.values['r1p7-owner-orgiz'] = 'Guild';
     const withoutDiscovery = await resume(disabled);
     assert.doesNotMatch(withoutDiscovery.app.innerHTML, /Cistern|Orgiz/);
-    assert.equal(collectionTotal(withoutDiscovery, 'Guild'), '4');
+    assert.equal(collectionIncome(withoutDiscovery, 'Guild'), '0');
     withoutDiscovery.action('back');
-    assert.doesNotMatch(withoutDiscovery.app.innerHTML, /Jacurutu Sietch/);
+    assert.doesNotMatch(withoutDiscovery.app.innerHTML, /Jacurutu Sietch|Discovery-локации/);
   }
 });
 
-test('old Spice Collection saves keep their counters, unique fortress assignments and elapsed phase time', async () => {
+test('old Spice Collection saves retain fortress assignments and elapsed phase time', async () => {
   const a = await resume(await gameWith(['Atreides', 'Guild'], {
     started: true, advanced: true, timelineVersion: 5, cursor: 10, round: 1, phase: 7,
     checks: { 'r1p7Atreides-arr': true, 'r1p7Atreides-car': true, 'r1p7Guild-car': true },
@@ -1204,8 +1180,8 @@ test('old Spice Collection saves keep their counters, unique fortress assignment
   assert.equal(a.game().active, '1|7|shared|main');
   assert.equal(a.game().cursor, 10);
   assert.equal(a.clocks.step.textContent, '00:00:07');
-  assert.equal(collectionTotal(a, 'Atreides'), '8');
-  assert.equal(collectionTotal(a, 'Guild'), '0');
+  assert.equal(collectionIncome(a, 'Atreides'), '2');
+  assert.equal(collectionIncome(a, 'Guild'), '0');
   assert.match(a.app.innerHTML, /В старой партии несколько владельцев/);
   a.action('back');
   assert.match(a.app.innerHTML, /data-value="r1p6-position-arr-count"[^>]*>[^<]*(?:<option[^>]*>[^<]*<\/option>)*<option value="3" selected>/);
@@ -1215,8 +1191,8 @@ test('old Spice Collection saves keep their counters, unique fortress assignment
   a.action('next');
   const loaded = await resume(a.game());
   assert.doesNotMatch(loaded.app.innerHTML, /В старой партии несколько владельцев/);
-  assert.equal(collectionTotal(loaded, 'Atreides'), '4');
-  assert.equal(collectionTotal(loaded, 'Guild'), '2');
+  assert.equal(collectionIncome(loaded, 'Atreides'), '0');
+  assert.equal(collectionIncome(loaded, 'Guild'), '2');
   assert.equal(loaded.clocks.step.textContent, '00:00:07');
 });
 
@@ -1272,21 +1248,16 @@ test('Ecaz collection guidance distinguishes shared desert spice from full Advan
       assert.equal(a.app.innerHTML.includes('каждый получает из банка полный доход'),alliances && advanced);
       if (alliances) {
         assert.match(a.app.innerHTML,/нечётный остаток получает союзник Ecaz/i);
-        assert.match(a.app.innerHTML,/калькулятор не делит его автоматически/i);
         if (!advanced) assert.match(a.app.innerHTML,/В Basic дополнительный доход.*не начисляется/);
       }
-      a.change({value:'r1p7Ecaz-troops'},'2');
-      a.change({value:'r1p7Ecaz-available'},'5');
-      assert.equal(collectionTotal(a, 'Ecaz'), advanced ? '10' : '5');
+      assert.equal(collectionIncome(a, 'Ecaz'), advanced ? '5' : '0');
       if (alliances) {
-        a.change({ value: 'r1p7Guild-troops' }, '1');
-        a.change({ value: 'r1p7Guild-available' }, '4');
-        assert.equal(collectionTotal(a, 'Guild'), advanced ? '5' : '3');
+        assert.equal(collectionIncome(a, 'Guild'), advanced ? '2' : '0');
         a.action('back');
         a.change({ value: 'r1p6-position-arr-faction' }, 'Ecaz');
         a.change({ value: 'r1p6-position-arr-count' }, '1');
         a.action('next');
-        assert.equal(collectionTotal(a, 'Guild'), '2');
+        assert.equal(collectionIncome(a, 'Guild'), '0');
       }
     }
   }

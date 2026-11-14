@@ -9,7 +9,6 @@ import { copy, persist } from "./storage.js";
 import { activate, current, fresh, key, migrateTimeline, migrateTreacherySetup, migrateTraitorSetup, setupList, skipInitialRevival, skipRevival, step } from "./game.js";
 import { normalizeRevival } from "./revival.js";
 import { leaderPrice } from "./screens/revival.js";
-import { resizeCollection } from "./screens/spice-collection.js";
 import { v } from "./ui.js";
 const el = document.getElementById('app');
 let renderedPlayStep = null;
@@ -82,14 +81,6 @@ function render() {
 el.addEventListener('click', evt => {
   let b = evt.target.closest('button');
   if (!b) return;
-
-  const collectionFaction = b.dataset.collectionAdd || b.dataset.collectionRemove;
-  if (collectionFaction && state.page === 'play' && current().p === 7 && state.g.selected.includes(collectionFaction)) {
-    resizeCollection(current().r, collectionFaction, b.dataset.collectionAdd ? 1 : -1);
-    persist();
-    render();
-    return;
-  }
 
   if (b.dataset.faction) {
     let f = b.dataset.faction,
