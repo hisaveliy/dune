@@ -95,7 +95,7 @@ export function boardPositions(game, round) {
       const chosen = game.values[key + '-occupier'];
       const confirmed = natives.count !== null && visitors.some(force => force.faction === chosen);
       const occupier = automatic || (confirmed ? chosen : '');
-      return { name, native, key, forces, visitors, occupier,
+      return { id, name, native, key, forces, visitors, occupier,
         disputed: !automatic && visitors.length > 0,
         needsReview: !automatic && visitors.length > 0 && !confirmed && chosen !== 'none',
         recorded: natives.count !== null };

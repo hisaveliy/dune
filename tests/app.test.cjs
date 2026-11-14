@@ -1270,6 +1270,37 @@ test('post-battle positions record Homeworld reserves and carry occupation into 
   }
 });
 
+test('Control shows recorded occupation and card effects without advancing the game', async () => {
+  const game = await gameWith(['Atreides', 'Guild'], {
+    started: true,
+    values: {
+      'r1p6-position-arr-faction': 'Atreides',
+      'r1p6-position-arr-count': 2,
+      'r1p7-owner-cistern': 'Guild',
+      'r1p6-position-world-Atreides-Atreides': 0,
+      'r1p6-position-world-Atreides-Guild': 3
+    }
+  });
+  game.modules.homeworlds = true;
+  const a = await resume(game);
+  a.action('open-control');
+  assert.match(a.app.innerHTML, /Контроль появится после записи войск/);
+  a.action('close-control');
+  await reach(a, 2, 6);
+  const cursor = a.game().cursor;
+  a.action('open-control');
+  assert.match(a.app.innerHTML, /Войска после боя · раунд 1/);
+  assert.match(a.app.innerHTML, /Stronghold Card · Атрейдесы/);
+  assert.match(a.app.innerHTML, /Банк оплачивает до 2 спайса/);
+  assert.match(a.app.innerHTML, /data-rule="Cistern"[\s\S]*?Гильдия[\s\S]*?получает 2 спайса из банка/);
+  assert.match(a.app.innerHTML, /data-rule="Caladan"[\s\S]*?Оккупант · Гильдия[\s\S]*?предвидение Атрейдесов на Bidding/);
+  assert.doesNotMatch(a.app.innerHTML, /<select|data-number/);
+  a.tick(2000);
+  a.action('close-control');
+  assert.equal(a.game().cursor, cursor);
+  assert.equal(a.clocks.step.textContent, '00:00:02');
+});
+
 test('Ecaz collection guidance distinguishes shared desert spice from full Advanced stronghold income', async () => {
   for (const advanced of [false,true]) {
     for (const alliances of [false,true]) {

@@ -3,15 +3,16 @@ import { N } from "../data.js";
 import { boardPositions } from "../positions.js";
 import { accordion, note, panel, select, v } from "../ui.js";
 
-const strongholdEffects = {
+export const strongholdEffects = {
   arr: 'Банк оплачивает до 2 спайса за поддержку ваших войск в этом бою.',
   car: 'Если вы не играете ядовитое оружие, сыгранная защита от другого типа оружия также действует как Snooper.',
   tuek: 'Получите из банка по 2 спайса за каждую Worthless Card, сыгранную в этом бою.',
   tabr: 'При победе получите из банка столько спайса, сколько противник выставил на диске, округляя вниз.',
-  habbanya: 'При равном результате вы побеждаете независимо от порядка бури и Juice of Sapho.'
+  habbanya: 'При равном результате вы побеждаете независимо от порядка бури и Juice of Sapho.',
+  'ix-mobile': 'До составления боевых планов объявите, эффект какой другой крепости под вашим контролем вы копируете.'
 };
 
-function cardHolder(fort) {
+export function cardHolder(fort) {
   if (!fort || fort.contested) return;
   return fort.occupants.length === 2 ? 'Ecaz' : fort.occupants[0];
 }
@@ -23,9 +24,9 @@ function strongholdHint(fort, round, previousForts, fighters) {
   const holder = cardHolder(previous);
   if (!holder) return note('В итогах прошлого раунда владелец карты этой крепости не указан.');
   if (!fighters.includes(holder)) return note(`Карта у фракции «${N[holder]}». Её эффект доступен, когда эта фракция участвует в бою за крепость.`);
-  const copies = previousForts.filter(location => strongholdEffects[location.id] && cardHolder(location) === holder);
+  const copies = previousForts.filter(location => location.id !== fort.id && strongholdEffects[location.id] && cardHolder(location) === holder);
   const effect = fort.id === 'ix-mobile'
-    ? 'До составления боевых планов объявите, эффект какой другой крепости под вашим контролем вы копируете.'
+    ? strongholdEffects[fort.id]
       + (copies.length ? '<ul>' + copies.map(location => `<li><strong>${location.name}</strong> · ${strongholdEffects[location.id]}</li>`).join('') + '</ul>'
         : ' В итогах прошлого раунда другие крепости под вашим контролем не указаны.')
     : strongholdEffects[fort.id];

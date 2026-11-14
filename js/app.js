@@ -2,6 +2,7 @@ import { state } from "./state.js";
 import { home, saved } from "./screens/home.js";
 import { create, settings, setup } from "./screens/setup.js";
 import { play } from "./screens/play.js";
+import { control } from "./screens/control.js";
 import { ended, statistics } from "./screens/statistics.js";
 import { choamBalance } from "./screens/charity.js";
 import { settle, spent, phaseMs, fmt } from "./timers.js";
@@ -60,6 +61,10 @@ function render() {
 
     case 'play':
       el.innerHTML = play();
+      break;
+
+    case 'control':
+      el.innerHTML = control();
       break;
 
     case 'stats':
@@ -209,6 +214,18 @@ el.addEventListener('click', evt => {
 
     case 'next':
       step(1);
+      render();
+      break;
+
+    case 'open-control':
+      if (state.page !== 'play' && state.page !== 'stats') break;
+      state.page = 'control';
+      render();
+      break;
+
+    case 'close-control':
+      if (state.page !== 'control') break;
+      state.page = current().p === 9 ? 'stats' : 'play';
       render();
       break;
 

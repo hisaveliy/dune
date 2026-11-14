@@ -5,7 +5,7 @@ import { esc, panel, select } from "../ui.js";
 
 const counts = [['', 'Не указано'], ...Array.from({ length: 21 }, (_, count) => [count, count])];
 const fortressCounts = counts.filter(([count]) => count !== 0);
-const discoveryHints = {
+export const discoveryHints = {
   jacurutu: 'Считается крепостью. Победитель боя здесь получает по 1 спайсу за каждое войско противника, которое не было выставлено на диске и отправилось в Tanks.',
   cistern: 'Фракция, занимающая Cistern в Spice Collection, получает 2 спайса из банка.',
   orgiz: 'В Spice Collection фракция, занимающая станцию, забирает по 1 спайсу из каждого Spice Blow, с которого собрали спайс.',
@@ -19,7 +19,7 @@ function fields(forces, native) {
   </label>`).join('')}</div>`;
 }
 
-function locationRow(name, status, editor) {
+export function locationRow(name, status, editor) {
   return `<details class="position-location" data-rule="${esc(name)}">
     <summary><strong>${name}</strong><span class="position-status">${status}</span></summary>
     <div class="position-editor">${editor}</div>
