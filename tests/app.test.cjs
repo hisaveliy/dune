@@ -970,6 +970,43 @@ test('Battle gives concrete guidance for all twelve factions and distinguishes B
   }
 });
 
+test('Battle uses the selected stronghold card holder from the previous round', async () => {
+  const a = await resume(await gameWith(['Atreides', 'Fremen', 'Ixians'], {
+    started: true,
+    values: {
+      'r1p6-position-arr-Atreides': 2,
+      'r1p6-position-car-Ixians': 1,
+      'r1p6-position-ix-mobile-Ixians': 1,
+      'r2p6-position-arr-Fremen': 3
+    }
+  }));
+  await reach(a, 1, 6);
+  a.change({ value: 'r1p6-stronghold' }, 'arr');
+  assert.match(a.app.innerHTML, /Карты крепостей выдаются в конце первого раунда/);
+  assert.doesNotMatch(a.app.innerHTML, /Банк оплачивает до 2 спайса/);
+  await reach(a, 2, 6);
+  a.change({ value: 'r2p6-stronghold' }, 'arr');
+  assert.match(a.app.innerHTML, /Атрейдесы · Arrakeen[\s\S]*?Банк оплачивает до 2 спайса/);
+  a.change({ value: 'r2p6-a' }, 'Ixians');
+  a.change({ value: 'r2p6-b' }, 'Fremen');
+  assert.match(a.app.innerHTML, /Карта у фракции «Атрейдесы»/);
+  assert.doesNotMatch(a.app.innerHTML, /Банк оплачивает до 2 спайса/);
+  a.change({ value: 'r2p6-stronghold' }, 'ix-mobile');
+  assert.match(a.app.innerHTML, /До составления боевых планов объявите[\s\S]*?<strong>Carthag<\/strong>[\s\S]*?Snooper/);
+  a.change({ value: 'r2p6-stronghold' }, 'jacurutu');
+  assert.match(a.app.innerHTML, /Jacurutu Sietch.*за каждое войско противника/);
+
+  a.change({ value: 'r2p6-stronghold' }, 'car');
+  for (const [advanced, stronghold] of [[false, true], [true, false]]) {
+    const saved = a.game();
+    saved.advanced = advanced;
+    saved.modules.stronghold = stronghold;
+    const loaded = await resume(saved);
+    assert.match(loaded.app.innerHTML, /Место боя/);
+    assert.doesNotMatch(loaded.app.innerHTML, /действует как Snooper/);
+  }
+});
+
 test('Battle updates opposing-faction exceptions and outside effects without restarting its timer', async () => {
   const a=await resume(await gameWith(['Fremen','Atreides','Emperor','Tleilaxu','CHOAM'],{started:true}));
   await reach(a,1,6);

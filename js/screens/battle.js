@@ -1,6 +1,36 @@
 import { state } from "../state.js";
 import { N } from "../data.js";
+import { boardPositions } from "../positions.js";
 import { accordion, note, panel, select, v } from "../ui.js";
+
+const strongholdEffects = {
+  arr: 'Банк оплачивает до 2 спайса за поддержку ваших войск в этом бою.',
+  car: 'Если вы не играете ядовитое оружие, сыгранная защита от другого типа оружия также действует как Snooper.',
+  tuek: 'Получите из банка по 2 спайса за каждую Worthless Card, сыгранную в этом бою.',
+  tabr: 'При победе получите из банка столько спайса, сколько противник выставил на диске, округляя вниз.',
+  habbanya: 'При равном результате вы побеждаете независимо от порядка бури и Juice of Sapho.'
+};
+
+function cardHolder(fort) {
+  if (!fort || fort.contested) return;
+  return fort.occupants.length === 2 ? 'Ecaz' : fort.occupants[0];
+}
+
+function strongholdHint(fort, round, previousForts, fighters) {
+  if (!fort || fort.id === 'jacurutu') return '';
+  if (round === 1) return note('Карты крепостей выдаются в конце первого раунда, в Mentat Pause.');
+  const previous = previousForts.find(location => location.id === fort.id);
+  const holder = cardHolder(previous);
+  if (!holder) return note('В итогах прошлого раунда владелец карты этой крепости не указан.');
+  if (!fighters.includes(holder)) return note(`Карта у фракции «${N[holder]}». Её эффект доступен, когда эта фракция участвует в бою за крепость.`);
+  const copies = previousForts.filter(location => strongholdEffects[location.id] && cardHolder(location) === holder);
+  const effect = fort.id === 'ix-mobile'
+    ? 'До составления боевых планов объявите, эффект какой другой крепости под вашим контролем вы копируете.'
+      + (copies.length ? '<ul>' + copies.map(location => `<li><strong>${location.name}</strong> · ${strongholdEffects[location.id]}</li>`).join('') + '</ul>'
+        : ' В итогах прошлого раунда другие крепости под вашим контролем не указаны.')
+    : strongholdEffects[fort.id];
+  return panel(`${N[holder]} · ${fort.name}`, effect);
+}
 
 function factionRules(f, opponent) {
   const g = state.g, advanced = g.advanced;
@@ -70,14 +100,20 @@ export function battle(step) {
   const chosen = v(base + '-b', others[0]);
   const b = others.includes(chosen) ? chosen : others[0];
   const outside = (f) => g.selected.includes(f) && ![a, b].includes(f);
+  const forts = boardPositions(g, step.r).forts;
+  const fort = forts.find(location => location.id === v(base + '-stronghold', ''));
+  const previousForts = step.r > 1 && fort && g.advanced && g.modules.stronghold
+    ? boardPositions(g, step.r - 1).forts : [];
   return panel('Battle', `<p>Выберите две фракции. После сражения можете выбрать другую пару; таймер продолжается для всей фазы.</p>
     ${select(base + '-a', g.selected.map(f => [f, N[f]]), g.selected[0])}
     <div style="text-align:center;color:var(--gold)">VS</div>
     ${select(base + '-b', others.map(f => [f, N[f]]), b)}
+    <label>Место боя${select(base + '-stronghold', [['', 'Другая территория или не указано'], ...forts.map(location => [location.id, location.name])], '', 'Место боя')}</label>
+    ${g.advanced && g.modules.stronghold ? strongholdHint(fort, step.r, previousForts, [a, b]) : ''}
     ${factionRules(a, b)}${factionRules(b, a)}
     ${outside('Tleilaxu') ? note('Тлейлаксу участвуют в партии: даже вне выбранной пары после определения победителя они могут раскрыть его лидера как Face Dancer. Завершите обычные последствия боя, затем разрешите замену войск.') : ''}
     ${g.advanced && outside('CHOAM') ? note('CHOAM участвует в партии: половина каждой оплаты боевой силы других игроков, округляя вниз, идёт CHOAM, остаток — в банк. При раскрытом предателе этот доход не выплачивается.') : ''}
-    ${g.modules.discovery ? note('Jacurutu Sietch: если бой прошёл внутри этой крепости, победитель получает по 1 спайсу за каждое войско противника, которое не было выставлено на боевом диске и отправилось в Tanks.') : ''}
+    ${g.modules.discovery && (!fort || fort.id === 'jacurutu') ? note('Jacurutu Sietch: если бой прошёл внутри этой крепости, победитель получает по 1 спайсу за каждое войско противника, которое не было выставлено на боевом диске и отправилось в Tanks.') : ''}
     ${note(g.advanced ? 'Обычная поддержка: за 1 спайс жетон войска даёт полную силу, без поддержки — половину. Исключения выбранных фракций указаны выше. На диске набирается итоговая сила, а не обязательно число жетонов.' : 'В Basic боевую силу не оплачивают спайсом. На диске набирается сила задействованных войск с учётом особенностей фракций.')}
     ${note('Проверить Traitor, Weapon/Defense, Karama и последствия боя. Скрытые карты вводить не требуется.' + (g.alliances ? ' Союзные преимущества применяются только при действующем альянсе и согласии фракции, которая их предоставляет.' : ''))}`);
 }
