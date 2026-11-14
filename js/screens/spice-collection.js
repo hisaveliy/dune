@@ -11,6 +11,7 @@ export function spiceCollection(round) {
   const options = order.map(f => [f, g.playerNames[f] ? `${N[f]} · ${g.playerNames[f]}` : N[f]]);
   const { forts, homeworlds, discoveries } = boardPositions(g, round);
   const orgiz = discoveries.find(location => location.id === 'orgiz')?.owner;
+  const fremenWorld = homeworlds.find(world => world.id === 'Fremen' && world.occupier);
   const assignments = panel('Крепости', `
     <p class="small">Контроль указан на шаге «Войска после боя». Для исправления вернитесь назад.</p>
     <table aria-label="Крепости">
@@ -26,13 +27,15 @@ export function spiceCollection(round) {
   `);
   const occupation = homeworlds.length ? panel('Homeworlds', `
     <table aria-label="Homeworlds">
-      <thead><tr><th scope="col">Мир</th><th scope="col">Резерв</th><th scope="col">Оккупация</th></tr></thead>
+      <thead><tr><th scope="col">Мир</th><th scope="col">Контроль</th><th scope="col">Из банка</th></tr></thead>
       <tbody>${homeworlds.map(world => `<tr>
         <th scope="row">${world.name}</th>
-        <td>${world.forces.find(force => force.faction === world.native).count ?? '—'}</td>
-        <td>${world.occupier ? N[world.occupier] : homeworldStatus(world)}</td>
+        <td>${homeworldStatus(world)}</td>
+        <td>${world.occupier && world.income ? `+${world.income}` : '—'}</td>
       </tr>`).join('')}</tbody>
     </table>
+    ${fremenWorld ? note(`Передайте фракции «${N[fremenWorld.occupier]}» половину всего спайса, собранного Фременами в этой фазе, округлив вниз.`) : ''}
+    ${g.alliances && homeworlds.some(world => world.occupier && world.income) ? '<p class="small">Оккупант может сразу поделиться доходом за оккупацию с союзником.</p>' : ''}
   `) : '';
 
   const discoverySummary = discoveries.length ? panel('Discovery-локации', `
@@ -50,10 +53,16 @@ export function spiceCollection(round) {
     const rate = occupied.some(fort => fort.id === 'arr' || fort.id === 'car') ? 3 : 2;
     const fortressIncome = g.advanced ? occupied.reduce((sum, fort) => sum + fort.income, 0) : 0;
     const cisternIncome = discoveries.find(location => location.id === 'cistern' && location.owner === f)?.income ?? 0;
+    const homeworldIncome = homeworlds.filter(world => world.occupier === f).reduce((sum, world) => sum + world.income, 0);
+    const incomeDetails = [
+      `крепости ${fortressIncome}`,
+      cisternIncome && `Cistern +${cisternIncome}`,
+      homeworldIncome && `Homeworlds +${homeworldIncome}`
+    ].filter(Boolean).join(', ');
     return `<section class="panel" data-collection-faction="${esc(f)}" aria-label="${esc(player)}">
       <h3>${esc(player)}</h3>
       <p>На поле · до <strong>${rate} спайса за войско</strong></p>
-      <p>Из банка · <strong><output data-collection-income>${fortressIncome + cisternIncome}</output> спайса</strong>${cisternIncome ? ` (крепости ${fortressIncome}, Cistern +${cisternIncome})` : ''}</p>
+      <p>Из банка · <strong><output data-collection-income>${fortressIncome + cisternIncome + homeworldIncome}</output> спайса</strong>${cisternIncome || homeworldIncome ? ` (${incomeDetails})` : ''}</p>
       ${extra(f, 7)}
     </section>`;
   }).join('');

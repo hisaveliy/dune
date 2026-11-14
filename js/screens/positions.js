@@ -13,12 +13,6 @@ export const discoveryHints = {
   shrine: 'Пока фракция занимает Shrine, она может сыграть Truthtrance как Karama и Karama как Truthtrance.'
 };
 
-function fields(forces, native) {
-  return `<div class="grid">${forces.map(({ faction, key }) => `<label>${N[faction]}${faction === native ? ' · резерв' : ''}
-    ${select(key, counts, '')}
-  </label>`).join('')}</div>`;
-}
-
 export function locationRow(name, status, editor) {
   return `<details class="position-location" data-rule="${esc(name)}">
     <summary><strong>${name}</strong><span class="position-status">${status}</span></summary>
@@ -37,9 +31,8 @@ export function fortStatus(fort) {
 
 export function homeworldStatus(world) {
   if (world.occupier) return 'Оккупант · ' + N[world.occupier];
-  if (!world.recorded && world.visitors.length) return 'Укажите резерв хозяина';
   if (world.needsReview) return 'Уточните оккупанта';
-  return world.recorded ? 'Без оккупанта' : 'Резерв не указан';
+  return N[world.native];
 }
 
 export function positions(round) {
@@ -59,18 +52,9 @@ export function positions(round) {
       </div>` + (fort.id === 'jacurutu' ? `<p class="muted">${discoveryHints.jacurutu}</p>` : ''));
     }).join('')}
   `) + (homeworlds.length ? panel('Homeworlds', `
-    <p class="muted">Нажмите на мир, чтобы указать резерв и чужие войска.</p>
-    ${homeworlds.map(world => {
-      const reserve = world.forces.find(force => force.faction === world.native);
-      const status = world.recorded ? `Резерв ${reserve.count} · ${homeworldStatus(world)}` : homeworldStatus(world);
-      const occupation = world.disputed && world.recorded ? `<label>Кто является оккупантом?
-        ${select(world.key + '-occupier', [['', 'Уточнить'], ['none', 'Без оккупанта'], ...world.visitors.map(force => [force.faction, N[force.faction]])], '', 'Оккупант · ' + world.name)}
-      </label>` : '';
-      return locationRow(world.name, status,
-        fields([reserve, ...world.forces.filter(force => force !== reserve)], world.native)
-        + (!world.recorded && world.visitors.length ? '<p class="muted">Выберите 0, если у хозяина мира не осталось войск в резерве.</p>' : '')
-        + occupation);
-    }).join('')}
+    ${homeworlds.map(world => locationRow(world.name, homeworldStatus(world),
+      `<label>Кто занимает мир?${select(world.factionKey, playerOptions, world.occupier || world.native, world.name)}</label>`
+    )).join('')}
   `) : '') + (discoveries.length ? panel('Discovery-локации', `
     <p class="muted">Укажите, чьи войска находятся внутри раскрытых локаций.</p>
     ${discoveries.map(({ id, name, owner, key }) => locationRow(name, N[owner] || 'Не раскрыта или пуста',

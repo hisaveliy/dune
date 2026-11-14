@@ -6,23 +6,6 @@ import { esc, panel } from "../ui.js";
 import { cardHolder, strongholdEffects } from "./battle.js";
 import { discoveryHints, fortStatus, homeworldStatus, locationRow } from "./positions.js";
 
-// The coin symbols in the Occupied section give the bank payout in Spice Collection.
-const occupationEffects = {
-  Atreides: [2, 'Оккупант разделяет предвидение Атрейдесов на Bidding и может смотреть карты, выставляемые на торги.'],
-  Harkonnen: [2, 'Когда Харконнены покупают Treachery Card, их дополнительную бесплатную карту получает оккупант или его союзник при наличии места в руке.'],
-  Fremen: [0, 'Оккупант получает половину всего спайса, который Фремены собирают в Spice Collection, с округлением вниз.'],
-  Emperor: [2, 'Оккупант получает половину каждого платежа за Treachery Card, причитающегося Императору, с округлением вниз.'],
-  salusa: [0, 'Sardaukar Императора теряют своё фракционное преимущество.'],
-  Guild: [2, 'Оккупант получает половину платежей других игроков за высадку, причитающихся Гильдии, с округлением вниз.'],
-  'Bene Gesserit': [1, 'Оккупант и его союзник защищены от Voice.'],
-  Ixians: [2, 'Оккупант получает преимущество Иксиан на Bidding: смотрит карты, взятые для торгов, и выбирает одну для удаления из торгов.'],
-  Tleilaxu: [2, 'Тлейлаксу не могут раскрывать Face Dancers против оккупанта или его союзника.'],
-  CHOAM: [2, 'Лимит руки оккупанта и его союзника увеличивается на 1. После окончания оккупации они сбрасывают лишние карты до обычного лимита. CHOAM теряет преимущество Low Threshold.'],
-  Richese: [1, 'Оккупант выбирает, какую карту из запаса Richese выставят на торги, и получает половину платежа Richese с округлением вниз.'],
-  Ecaz: [2, 'Оккупант или его союзник получает Duke Vidal и может воскресить его из Tanks. Этот эффект имеет приоритет над обычными способностями Ecaz и Moritani, связанными с Vidal.'],
-  Moritani: [2, 'Moritani не могут раскрыть Terror Token, когда оккупант или его союзник входит в территорию с этим жетоном.']
-};
-
 export function control() {
   const game = state.g;
   const step = current();
@@ -33,7 +16,7 @@ export function control() {
     const candidate = boardPositions(game, recordedRound);
     if (candidate.forts.some(fort => fort.recorded || fort.occupants.length || fort.needsReview)
       || candidate.discoveries.some(location => game.values[location.key] !== undefined)
-      || candidate.homeworlds.some(world => world.recorded || world.visitors.length)) {
+      || candidate.homeworlds.some(world => world.recorded)) {
       positions = candidate;
       break;
     }
@@ -61,11 +44,9 @@ export function control() {
     locationRow(location.name, N[location.owner] || 'Не раскрыта или пуста', `<p>${discoveryHints[location.id]}</p>`)
   ).join('');
   const worldRows = homeworlds.map(world => {
-    const reserve = world.forces.find(force => force.faction === world.native).count;
-    const [income, effect] = occupationEffects[world.id];
+    const { income, effect } = world;
     return locationRow(world.name, homeworldStatus(world), `
-      <p>Хозяин · ${N[world.native]} · резерв ${reserve ?? 'не указан'}</p>
-      ${world.visitors.length ? '<p>Чужие войска · ' + world.visitors.map(force => `${N[force.faction]} · ${force.count}`).join(', ') + '</p>' : ''}
+      <p>Хозяин · ${N[world.native]}</p>
       <p><strong>${world.occupier ? 'Преимущество фракции «' + N[world.occupier] + '»' : 'Эффект при оккупации'}</strong></p>
       <p>${effect}</p>
       ${income ? `<p>В Spice Collection оккупант получает ${income} спайса из банка.</p>` : ''}

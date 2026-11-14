@@ -21,6 +21,23 @@ const homeworldNames = {
   Moritani: 'Grumman'
 };
 
+// The coin symbols in the Occupied section give the bank payout in Spice Collection.
+const occupationEffects = {
+  Atreides: [2, 'Оккупант разделяет предвидение Атрейдесов на Bidding и может смотреть карты, выставляемые на торги.'],
+  Harkonnen: [2, 'Когда Харконнены покупают Treachery Card, их дополнительную бесплатную карту получает оккупант или его союзник при наличии места в руке.'],
+  Fremen: [0, 'Оккупант получает половину всего спайса, который Фремены собирают в Spice Collection, с округлением вниз.'],
+  Emperor: [2, 'Оккупант получает половину каждого платежа за Treachery Card, причитающегося Императору, с округлением вниз.'],
+  salusa: [0, 'Sardaukar Императора теряют своё фракционное преимущество.'],
+  Guild: [2, 'Оккупант получает половину платежей других игроков за высадку, причитающихся Гильдии, с округлением вниз.'],
+  'Bene Gesserit': [1, 'Оккупант и его союзник защищены от Voice.'],
+  Ixians: [2, 'Оккупант получает преимущество Иксиан на Bidding: смотрит карты, взятые для торгов, и выбирает одну для удаления из торгов.'],
+  Tleilaxu: [2, 'Тлейлаксу не могут раскрывать Face Dancers против оккупанта или его союзника.'],
+  CHOAM: [2, 'Лимит руки оккупанта и его союзника увеличивается на 1. После окончания оккупации они сбрасывают лишние карты до обычного лимита. CHOAM теряет преимущество Low Threshold.'],
+  Richese: [1, 'Оккупант выбирает, какую карту из запаса Richese выставят на торги, и получает половину платежа Richese с округлением вниз.'],
+  Ecaz: [2, 'Оккупант или его союзник получает Duke Vidal и может воскресить его из Tanks. Этот эффект имеет приоритет над обычными способностями Ecaz и Moritani, связанными с Vidal.'],
+  Moritani: [2, 'Moritani не могут раскрыть Terror Token, когда оккупант или его союзник входит в территорию с этим жетоном.']
+};
+
 const discoveryLocations = [
   { id: 'cistern', name: 'Cistern', income: 2 },
   { id: 'orgiz', name: 'Orgiz Processing Station' },
@@ -88,17 +105,24 @@ export function boardPositions(game, round) {
     }) : [],
     homeworlds: worlds.map(({ id, name, native }) => {
       const key = prefix + 'world-' + id;
+      const factionKey = key + '-faction';
+      const [income, effect] = occupationEffects[id];
+      const faction = game.values[factionKey];
+      if (game.selected.includes(faction)) {
+        return { id, name, native, factionKey, income, effect, recorded: true,
+          occupier: faction === native ? '' : faction };
+      }
+
       const forces = forcesAt(game, key);
-      const natives = forces.find(force => force.faction === native);
+      const reserve = forces.find(force => force.faction === native).count;
       const visitors = forces.filter(force => force.faction !== native && force.count > 0);
-      const automatic = natives.count === 0 && visitors.length === 1 ? visitors[0].faction : '';
       const chosen = game.values[key + '-occupier'];
-      const confirmed = natives.count !== null && visitors.some(force => force.faction === chosen);
+      const confirmed = reserve !== null && visitors.some(force => force.faction === chosen);
+      const automatic = reserve === 0 && visitors.length === 1 ? visitors[0].faction : '';
       const occupier = automatic || (confirmed ? chosen : '');
-      return { id, name, native, key, forces, visitors, occupier,
-        disputed: !automatic && visitors.length > 0,
-        needsReview: !automatic && visitors.length > 0 && !confirmed && chosen !== 'none',
-        recorded: natives.count !== null };
+      return { id, name, native, factionKey, income, effect, occupier,
+        recorded: reserve !== null || visitors.length > 0,
+        needsReview: !occupier && visitors.length > 0 && chosen !== 'none' };
     })
   };
 }

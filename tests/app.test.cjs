@@ -1233,40 +1233,45 @@ test('old Spice Collection saves retain fortress assignments and elapsed phase t
   assert.equal(loaded.clocks.step.textContent, '00:00:07');
 });
 
-test('post-battle positions record Homeworld reserves and carry occupation into Spice Collection', async () => {
+test('Homeworld faction selections determine bank income in Basic and Advanced Spice Collection', async () => {
   for (const advanced of [false, true]) {
-    const game = await gameWith(['Atreides', 'Emperor', 'Guild'], { started: true, advanced });
+    const game = await gameWith(['Atreides', 'Emperor', 'Guild', 'Fremen', 'Richese'], { started: true, advanced });
     game.modules.homeworlds = true;
     const a = await resume(game);
     await reach(a, 1, 6);
     a.action('next');
-    assert.match(a.app.innerHTML, /Войска после боя/);
-    assert.match(a.app.innerHTML, /Kaitain/);
     assert.equal(a.app.innerHTML.includes('Salusa Secundus'), advanced);
-    assert.doesNotMatch(a.app.innerHTML, /data-rule="Ix ·/);
 
+    const caladan = 'r1p6-position-world-Atreides-faction';
+    const caladanPicker = a.app.innerHTML.split('data-rule="Caladan"')[1].split('</details>')[0];
+    assert.equal((caladanPicker.match(/<select\b/g) || []).length, 1);
+    assert.match(caladanPicker, /<option value="Atreides" selected>/);
     a.app.querySelectorAll('details[data-rule]').find(details => details.dataset.rule === 'Caladan').open = true;
-    const caladan = 'r1p6-position-world-Atreides';
-    a.change({ value: caladan + '-Guild' }, '3');
-    assert.match(a.app.innerHTML, /<strong>Caladan<\/strong><span class="position-status">Укажите резерв хозяина/);
-    assert.match(a.app.innerHTML, /Выберите 0, если у хозяина мира не осталось войск в резерве/);
+    a.change({ value: caladan }, 'Guild');
     assert.match(a.app.innerHTML, /data-rule="Caladan" open/);
-    a.change({ value: caladan + '-Atreides' }, '0');
-    assert.match(a.app.innerHTML, /<strong>Caladan<\/strong><span class="position-status">[^<]*Оккупант · Гильдия/);
-    a.change({ value: caladan + '-Emperor' }, '2');
-    assert.match(a.app.innerHTML, /<strong>Caladan<\/strong><span class="position-status">[^<]*Уточните оккупанта/);
-    a.change({ value: caladan + '-occupier' }, 'none');
-    assert.match(a.app.innerHTML, /<strong>Caladan<\/strong><span class="position-status">[^<]*Без оккупанта/);
-    a.change({ value: caladan + '-occupier' }, 'Guild');
+    assert.match(a.app.innerHTML, /<strong>Caladan<\/strong><span class="position-status">Оккупант · Гильдия/);
+    a.change({ value: 'r1p6-position-world-Emperor-faction' }, 'Guild');
+    a.change({ value: 'r1p6-position-world-Richese-faction' }, 'Guild');
+    a.change({ value: 'r1p6-position-world-Fremen-faction' }, 'Guild');
+    if (advanced) a.change({ value: 'r1p6-position-world-salusa-faction' }, 'Guild');
+    a.change({ value: 'r1p6-position-arr-faction' }, 'Guild');
+    a.change({ value: 'r1p6-position-arr-count' }, '1');
+
     const loaded = await resume(a.game());
     assert.equal(loaded.game().active, '1|6|shared|positions');
     loaded.action('next');
-    assert.match(loaded.app.innerHTML, /<table aria-label="Homeworlds">[\s\S]*?<th scope="row">Caladan<\/th>\s*<td>0<\/td>\s*<td>Гильдия<\/td>/);
+    assert.match(loaded.app.innerHTML, /<th scope="row">Caladan<\/th>\s*<td>Оккупант · Гильдия<\/td>\s*<td>\+2<\/td>/);
+    assert.match(loaded.app.innerHTML, /<th scope="row">Richese<\/th>\s*<td>Оккупант · Гильдия<\/td>\s*<td>\+1<\/td>/);
+    assert.match(loaded.app.innerHTML, /«Гильдия» половину всего спайса, собранного Фременами/);
+    assert.match(loaded.app.innerHTML, /Homeworlds \+5/);
+    assert.equal(collectionIncome(loaded, 'Guild'), advanced ? '7' : '5');
+    assert.equal(collectionIncome(loaded, 'Atreides'), '0');
+
     loaded.action('back');
-    loaded.change({ value: caladan + '-Guild' }, '0');
-    assert.match(loaded.app.innerHTML, /<strong>Caladan<\/strong><span class="position-status">[^<]*Оккупант · Император/);
-    loaded.action('back');
-    assert.match(loaded.app.innerHTML, /Выберите две фракции/);
+    loaded.change({ value: caladan }, 'Atreides');
+    loaded.action('next');
+    assert.match(loaded.app.innerHTML, /<th scope="row">Caladan<\/th>\s*<td>Атрейдесы<\/td>\s*<td>—<\/td>/);
+    assert.equal(collectionIncome(loaded, 'Guild'), advanced ? '5' : '3');
   }
 });
 
@@ -1286,6 +1291,8 @@ test('Control shows recorded occupation and card effects without advancing the g
   a.action('open-control');
   assert.match(a.app.innerHTML, /Контроль появится после записи войск/);
   a.action('close-control');
+  await reach(a, 1, 7);
+  assert.equal(collectionIncome(a, 'Guild'), '4');
   await reach(a, 2, 6);
   const cursor = a.game().cursor;
   a.action('open-control');
