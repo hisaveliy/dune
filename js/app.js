@@ -12,7 +12,7 @@ import { normalizeRevival } from "./revival.js";
 import { leaderPrice } from "./screens/revival.js";
 import { v } from "./ui.js";
 const el = document.getElementById('app');
-let renderedPlayStep = null;
+let renderedRulesScreen = null;
 
 function revivalStepForValue(valueKey) {
   if (state.page !== 'play' || !valueKey) return;
@@ -32,9 +32,10 @@ function updateClocks(el) {
 }
 
 function render() {
-  const playStep = state.page === 'play' ? `${state.g.id}:${state.g.cursor}` : null;
+  const rulesScreen = state.page === 'play' || state.page === 'control'
+    ? `${state.page}:${state.g.id}:${state.g.cursor}` : null;
   const openRules = new Set();
-  if (playStep && playStep === renderedPlayStep) {
+  if (rulesScreen && rulesScreen === renderedRulesScreen) {
     for (const details of el.querySelectorAll('details[data-rule][open]')) openRules.add(details.dataset.rule);
   }
 
@@ -79,7 +80,7 @@ function render() {
   if (openRules.size) {
     for (const details of el.querySelectorAll('details[data-rule]')) details.open = openRules.has(details.dataset.rule);
   }
-  renderedPlayStep = playStep;
+  renderedRulesScreen = rulesScreen;
   updateClocks(el);
 }
 

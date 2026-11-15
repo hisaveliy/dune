@@ -23,19 +23,19 @@ const homeworldNames = {
 
 // The coin symbols in the Occupied section give the bank payout in Spice Collection.
 const occupationEffects = {
-  Atreides: [2, 'Оккупант разделяет предвидение Атрейдесов на Bidding и может смотреть карты, выставляемые на торги.'],
-  Harkonnen: [2, 'Когда Харконнены покупают Treachery Card, их дополнительную бесплатную карту получает оккупант или его союзник при наличии места в руке.'],
-  Fremen: [0, 'Оккупант получает половину всего спайса, который Фремены собирают в Spice Collection, с округлением вниз.'],
-  Emperor: [2, 'Оккупант получает половину каждого платежа за Treachery Card, причитающегося Императору, с округлением вниз.'],
-  salusa: [0, 'Sardaukar Императора теряют своё фракционное преимущество.'],
-  Guild: [2, 'Оккупант получает половину платежей других игроков за высадку, причитающихся Гильдии, с округлением вниз.'],
-  'Bene Gesserit': [1, 'Оккупант и его союзник защищены от Voice.'],
-  Ixians: [2, 'Оккупант получает преимущество Иксиан на Bidding: смотрит карты, взятые для торгов, и выбирает одну для удаления из торгов.'],
-  Tleilaxu: [2, 'Тлейлаксу не могут раскрывать Face Dancers против оккупанта или его союзника.'],
-  CHOAM: [2, 'Лимит руки оккупанта и его союзника увеличивается на 1. После окончания оккупации они сбрасывают лишние карты до обычного лимита. CHOAM теряет преимущество Low Threshold.'],
-  Richese: [1, 'Оккупант выбирает, какую карту из запаса Richese выставят на торги, и получает половину платежа Richese с округлением вниз.'],
-  Ecaz: [2, 'Оккупант или его союзник получает Duke Vidal и может воскресить его из Tanks. Этот эффект имеет приоритет над обычными способностями Ecaz и Moritani, связанными с Vidal.'],
-  Moritani: [2, 'Moritani не могут раскрыть Terror Token, когда оккупант или его союзник входит в территорию с этим жетоном.']
+  Atreides: [2, 'Оккупант разделяет предвидение Атрейдесов на Bidding и может смотреть карты, выставляемые на торги.', [3]],
+  Harkonnen: [2, 'Когда Харконнены покупают Treachery Card, их дополнительную бесплатную карту получает оккупант или его союзник при наличии места в руке.', [3]],
+  Fremen: [0, 'Оккупант получает половину всего спайса, который Фремены собирают в Spice Collection, с округлением вниз.', []],
+  Emperor: [2, 'Из каждого платежа за Treachery Card оккупант получает половину с округлением вниз. Остаток получает Император.', [3]],
+  salusa: [0, 'Sardaukar Императора считаются обычными войсками против всех фракций, пока Salusa Secundus оккупирована.', [6]],
+  Guild: [2, 'Из каждого платежа другого игрока за высадку оккупант получает половину с округлением вниз. Остаток получает Гильдия.', [5]],
+  'Bene Gesserit': [1, 'Оккупант и его союзник защищены от Voice.', [6]],
+  Ixians: [2, 'Оккупант вместо Иксиан готовит обычные торги: берёт на одну карту больше, тайно смотрит все карты и возвращает одну наверх или под низ колоды. Остальные перемешивает и выкладывает закрыто.', [3]],
+  Tleilaxu: [2, 'Тлейлаксу не могут раскрывать Face Dancers против оккупанта или его союзника.', [6]],
+  CHOAM: [2, 'Лимит руки оккупанта и его союзника увеличивается на 1. После окончания оккупации они сбрасывают лишние карты до обычного лимита. CHOAM теряет преимущество Low Threshold.', [3]],
+  Richese: [1, 'Оккупант выбирает, какую карту из запаса Richese выставят на торги, и получает половину платежа Richese с округлением вниз.', [3]],
+  Ecaz: [2, 'Оккупант или его союзник получает Duke Vidal и может воскресить его из Tanks. Этот эффект имеет приоритет над обычными способностями Ecaz и Moritani, связанными с Vidal.', [4, 5, 6]],
+  Moritani: [2, 'Moritani не могут раскрыть Terror Token, когда оккупант или его союзник входит в территорию с этим жетоном.', [5]]
 };
 
 const discoveryLocations = [
@@ -114,10 +114,10 @@ export function boardPositions(game, round) {
     homeworlds: worlds.map(({ id, name, native }) => {
       const key = prefix + 'world-' + id;
       const factionKey = key + '-faction';
-      const [income, effect] = occupationEffects[id];
-      const faction = game.values[factionKey];
+      const [income, effect, phases] = occupationEffects[id];
+      const faction = game.values[factionKey] ?? game.values[key + '-control-faction'];
       if (game.selected.includes(faction)) {
-        return { id, name, native, factionKey, income, effect, recorded: true,
+        return { id, name, native, factionKey, income, effect, phases, recorded: true,
           occupier: faction === native ? '' : faction };
       }
 
@@ -128,9 +128,19 @@ export function boardPositions(game, round) {
       const confirmed = reserve !== null && visitors.some(force => force.faction === chosen);
       const automatic = reserve === 0 && visitors.length === 1 ? visitors[0].faction : '';
       const occupier = automatic || (confirmed ? chosen : '');
-      return { id, name, native, factionKey, income, effect, occupier,
+      return { id, name, native, factionKey, income, effect, phases, occupier,
         recorded: reserve !== null || visitors.length > 0,
         needsReview: !occupier && visitors.length > 0 && chosen !== 'none' };
     })
   };
+}
+
+export function homeworldsBeforeBattle(game, round) {
+  return boardPositions(game, round - 1).homeworlds.map(world => {
+    const factionKey = `r${round}p6-position-world-${world.id}-control-faction`;
+    const faction = game.values[factionKey];
+    return game.selected.includes(faction)
+      ? { ...world, factionKey, occupier: faction === world.native ? '' : faction, recorded: true, needsReview: false }
+      : { ...world, factionKey };
+  });
 }

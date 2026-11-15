@@ -6,10 +6,25 @@ import { revival, ecazAmbassadors } from "./revival.js";
 import { battle } from "./battle.js";
 import { positions } from "./positions.js";
 import { accordion, allExtra, check, counter, esc, extra, note, panel, select, v } from "../ui.js";
+import { homeworldsBeforeBattle } from "../positions.js";
 import { ability, N, P } from "../data.js";
 import { state } from "../state.js";
 import { current, key, roundOrder } from "../game.js";
 import { fmt, phaseMs, spent } from "../timers.js";
+function homeworldHints(step) {
+  const game = state.g;
+  if (!game.modules.homeworlds || step.part === 'positions' || step.p < 3 || step.p > 6) return '';
+  const worlds = homeworldsBeforeBattle(game, step.r).filter(world => world.occupier && world.phases.includes(step.p)
+    && (world.id !== 'Moritani' || game.alliances || step.f === world.occupier));
+  if (!worlds.length) return '';
+  return panel('Homeworlds · преимущества оккупации', worlds.map(world => `
+    <div class="rule" data-homeworld-hint="${esc(world.id)}">
+      <strong>${N[world.occupier]} · ${world.name}</strong>
+      <div class="muted">${world.effect}</div>
+    </div>`).join('')
+    + '<p class="small">При действующей оккупации эти условия имеют приоритет над обычными подсказками фракций. Если оккупант сменился, обновите его в «Контроле».</p>');
+}
+
 export function phaseContent(s) {
   let base = 'r' + s.r + 'p' + s.p,
       f = s.f;
@@ -125,5 +140,5 @@ export function phaseContent(s) {
 export function play() {
   let s = current(),
       personal = !!s.f;
-  return `<div class="play-screen"><header><div class="row"><span class="ey">DUNE COMPANION · GAME MASTER</span><span class="tag">${state.g.paused ? 'ПАУЗА' : '● ИГРА'}</span></div><div class="row" style="margin-top:12px"><div><span class="small">РАУНД</span><h3>${s.r} / 10</h3></div><div style="text-align:right"><span class="small">ФАЗА ${s.p + 1} / 9</span><h3>${P[s.p]}</h3></div></div><div class="track">${P.map((_, i) => `<i class="${i === s.p ? 'now' : i < s.p ? 'done' : ''}"></i>`).join('')}</div></header><div class="body"><div class="row"><span class="ey">${personal ? 'ХОД ИГРОКА' : s.part === 'A' || s.part === 'B' ? 'СТОПКА ' + s.part : 'ОБЩАЯ ФАЗА'}</span><div class="row"><button class="tinybtn" data-action="open-control">Контроль</button><button class="tinybtn" data-action="pause">${state.g.paused ? '▶ Продолжить' : 'Ⅱ Пауза'}</button></div></div>${personal ? `<h2 style="margin-top:10px">${N[s.f]}</h2><div class="muted">${esc(state.g.playerNames[s.f] || '')}</div>` : ''}<div class="${personal ? 'timers' : ''}">${personal ? `<div class="timerPanel"><div class="small">ВРЕМЯ ФАЗЫ</div><div class="timer" data-clock="phase">${fmt(phaseMs(s.r, s.p))}</div></div>` : ''}<div class="timerPanel"><div class="small">${personal ? 'ВРЕМЯ ИГРОКА' : 'ВРЕМЯ ФАЗЫ'}</div><div class="timer" data-clock="step">${fmt(personal ? spent(key(s)) : phaseMs(s.r, s.p))}</div><div class="small">${state.g.paused ? 'Остановлен' : '● Активен'}</div></div></div>${phaseContent(s)}<button class="subtle" data-action="home">Главная · сохранить прогресс</button></div><div class="footer play-footer"><div class="nav"><button class="button" data-action="back" ${state.g.cursor === 0 ? 'disabled' : ''}>← Назад</button><button class="button primary" data-action="next">${s.p === 8 ? 'Статистика раунда' : 'Далее'} →</button></div></div></div>`;
+  return `<div class="play-screen"><header><div class="row"><span class="ey">DUNE COMPANION · GAME MASTER</span><span class="tag">${state.g.paused ? 'ПАУЗА' : '● ИГРА'}</span></div><div class="row" style="margin-top:12px"><div><span class="small">РАУНД</span><h3>${s.r} / 10</h3></div><div style="text-align:right"><span class="small">ФАЗА ${s.p + 1} / 9</span><h3>${P[s.p]}</h3></div></div><div class="track">${P.map((_, i) => `<i class="${i === s.p ? 'now' : i < s.p ? 'done' : ''}"></i>`).join('')}</div></header><div class="body"><div class="row"><span class="ey">${personal ? 'ХОД ИГРОКА' : s.part === 'A' || s.part === 'B' ? 'СТОПКА ' + s.part : 'ОБЩАЯ ФАЗА'}</span><div class="row"><button class="tinybtn" data-action="open-control">Контроль</button><button class="tinybtn" data-action="pause">${state.g.paused ? '▶ Продолжить' : 'Ⅱ Пауза'}</button></div></div>${personal ? `<h2 style="margin-top:10px">${N[s.f]}</h2><div class="muted">${esc(state.g.playerNames[s.f] || '')}</div>` : ''}<div class="${personal ? 'timers' : ''}">${personal ? `<div class="timerPanel"><div class="small">ВРЕМЯ ФАЗЫ</div><div class="timer" data-clock="phase">${fmt(phaseMs(s.r, s.p))}</div></div>` : ''}<div class="timerPanel"><div class="small">${personal ? 'ВРЕМЯ ИГРОКА' : 'ВРЕМЯ ФАЗЫ'}</div><div class="timer" data-clock="step">${fmt(personal ? spent(key(s)) : phaseMs(s.r, s.p))}</div><div class="small">${state.g.paused ? 'Остановлен' : '● Активен'}</div></div></div>${homeworldHints(s)}${phaseContent(s)}<button class="subtle" data-action="home">Главная · сохранить прогресс</button></div><div class="footer play-footer"><div class="nav"><button class="button" data-action="back" ${state.g.cursor === 0 ? 'disabled' : ''}>← Назад</button><button class="button primary" data-action="next">${s.p === 8 ? 'Статистика раунда' : 'Далее'} →</button></div></div></div>`;
 }

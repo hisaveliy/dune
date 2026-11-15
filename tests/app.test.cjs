@@ -1143,7 +1143,7 @@ function collectionIncome(a, faction) {
   return row?.match(/<output data-collection-income>(\d+)<\/output>/)?.[1];
 }
 
-test('Spice Collection uses post-battle fortress counts with Homeworlds disabled', async () => {
+test('Spice Collection uses post-battle fortress occupation with Homeworlds disabled', async () => {
   const a = await resume(await gameWith(['Atreides', 'Guild'], {
     started: true, advanced: true, playerNames: { Atreides: 'Пол' }
   }));
@@ -1277,6 +1277,47 @@ test('Homeworld faction selections determine bank income in Basic and Advanced S
   }
 });
 
+test('Homeworld occupation hints follow the phase and recorded occupier', async () => {
+  const game = await gameWith(['Atreides', 'Emperor', 'Guild', 'Ecaz', 'Moritani', 'Ixians'], {
+    started: true, advanced: true, alliances: false,
+    values: {
+      'r1p6-position-world-Atreides-faction': 'Guild',
+      'r1p6-position-world-Ixians-faction': 'Emperor',
+      'r1p6-position-world-Ecaz-faction': 'Atreides',
+      'r1p6-position-world-Guild-faction': 'Atreides',
+      'r1p6-position-world-salusa-faction': 'Ecaz',
+      'r1p6-position-world-Moritani-faction': 'Ixians',
+      'r2p6-position-world-Atreides-faction': 'Atreides'
+    }
+  });
+  game.modules.homeworlds = true;
+  const a = await resume(game);
+  const hints = () => [...a.app.innerHTML.matchAll(/data-homeworld-hint="([^"]+)"/g)].map(match => match[1]);
+  await reach(a, 1, 3);
+  assert.deepEqual(hints(), []);
+  await reach(a, 2, 3);
+  assert.deepEqual(hints(), ['Atreides', 'Ixians']);
+  assert.match(a.app.innerHTML, /<strong>Гильдия · Caladan<\/strong>/);
+  assert.match(a.app.innerHTML, /<strong>Император · Ix<\/strong>/);
+  const disabledGame = a.game();
+  disabledGame.modules.homeworlds = false;
+  assert.doesNotMatch((await resume(disabledGame)).app.innerHTML, /data-homeworld-hint/);
+  await reach(a, 2, 4);
+  assert.deepEqual(hints(), ['Ecaz']);
+  await reach(a, 2, 5);
+  assert.deepEqual(hints(), ['Guild', 'Ecaz']);
+  for (let i = 0; i < 5; i++) a.action('next');
+  assert.deepEqual(hints(), ['Guild', 'Ecaz', 'Moritani']);
+  await reach(a, 2, 6);
+  assert.deepEqual(hints(), ['salusa', 'Ecaz']);
+  a.action('next');
+  assert.deepEqual(hints(), []);
+  await reach(a, 2, 7);
+  assert.equal(collectionIncome(a, 'Guild'), '0');
+  await reach(a, 3, 3);
+  assert.deepEqual(hints(), []);
+});
+
 test('Control shows recorded occupation and card effects without advancing the game', async () => {
   const game = await gameWith(['Atreides', 'Guild'], {
     started: true,
@@ -1291,23 +1332,89 @@ test('Control shows recorded occupation and card effects without advancing the g
   game.modules.homeworlds = true;
   const a = await resume(game);
   a.action('open-control');
-  assert.match(a.app.innerHTML, /Контроль появится после записи войск/);
+  assert.match(a.app.innerHTML, /Изменения сохраняются сразу · раунд 1/);
   a.action('close-control');
   await reach(a, 1, 7);
   assert.equal(collectionIncome(a, 'Guild'), '4');
   await reach(a, 2, 6);
   const cursor = a.game().cursor;
   a.action('open-control');
-  assert.match(a.app.innerHTML, /Войска после боя · раунд 1/);
+  assert.match(a.app.innerHTML, /Изменения сохраняются сразу · раунд 2/);
   assert.match(a.app.innerHTML, /Stronghold Card · Атрейдесы/);
   assert.match(a.app.innerHTML, /Банк оплачивает до 2 спайса/);
   assert.match(a.app.innerHTML, /data-rule="Cistern"[\s\S]*?Гильдия[\s\S]*?получает 2 спайса из банка/);
   assert.match(a.app.innerHTML, /data-rule="Caladan"[\s\S]*?Оккупант · Гильдия[\s\S]*?предвидение Атрейдесов на Bidding/);
-  assert.doesNotMatch(a.app.innerHTML, /<select|data-number/);
+  assert.match(a.app.innerHTML, /data-value="r2p6-position-world-Atreides-control-faction"/);
+  assert.match(a.app.innerHTML, /data-value="r2p6-position-arr-occupant"/);
+  assert.match(a.app.innerHTML, /Раунд 1 · Атрейдесы/);
+  assert.doesNotMatch(a.app.innerHTML, /data-number/);
   a.tick(2000);
   a.action('close-control');
   assert.equal(a.game().cursor, cursor);
   assert.equal(a.clocks.step.textContent, '00:00:02');
+});
+
+test('Control can update Homeworld occupation during Shipment and carry it into Battle and collection', async () => {
+  const game = await gameWith(['Guild', 'Atreides', 'Bene Gesserit'], { started: true });
+  game.modules.homeworlds = true;
+  let a = await resume(game);
+  await reach(a, 1, 5);
+  a.action('open-control');
+  const controlKey = 'r1p6-position-world-Bene Gesserit-control-faction';
+  a.change({ value: controlKey }, 'Guild');
+  assert.match(a.app.innerHTML, /Wallach IX<\/strong><span class="position-status">Оккупант · Гильдия/);
+  a.action('close-control');
+  a = await resume(a.game());
+
+  await reach(a, 1, 6);
+  assert.match(a.app.innerHTML, /<strong>Гильдия · Wallach IX<\/strong>/);
+  a.action('open-control');
+  a.change({ value: controlKey }, 'Bene Gesserit');
+  a.action('close-control');
+  assert.doesNotMatch(a.app.innerHTML, /data-homeworld-hint=/);
+  a.action('open-control');
+  a.change({ value: controlKey }, 'Atreides');
+  a.action('close-control');
+  assert.match(a.app.innerHTML, /<strong>Атрейдесы · Wallach IX<\/strong>/);
+  a.action('next');
+  const picker = a.app.innerHTML.split('data-value="r1p6-position-world-Bene Gesserit-faction"')[1].split('</select>')[0];
+  assert.match(picker, /<option value="Atreides" selected>/);
+  a.action('next');
+  assert.equal(collectionIncome(a, 'Atreides'), '1');
+
+  a.action('open-control');
+  a.change({ value: 'r1p6-position-world-Bene Gesserit-faction' }, 'Guild');
+  a.action('close-control');
+  assert.equal(collectionIncome(a, 'Atreides'), '0');
+  assert.equal(collectionIncome(a, 'Guild'), '1');
+});
+
+test('Control edits current-round fortresses and Discovery even before Battle and from statistics', async () => {
+  let a = await resume(await gameWith(['Atreides', 'Guild'], { started: true, advanced: true }));
+  const cursor = a.game().cursor;
+  a.action('open-control');
+  a.app.querySelectorAll('details[data-rule]').find(details => details.dataset.rule === 'Arrakeen').open = true;
+  a.change({ value: 'r1p6-position-arr-occupant' }, 'Atreides');
+  assert.match(a.app.innerHTML, /data-rule="Arrakeen" open/);
+  a.change({ value: 'r1p7-owner-cistern' }, 'Guild');
+  a.action('close-control');
+  assert.equal(a.game().cursor, cursor);
+  a = await resume(a.game());
+  await reach(a, 1, 7);
+  assert.equal(collectionIncome(a, 'Atreides'), '2');
+  assert.equal(collectionIncome(a, 'Guild'), '2');
+
+  await reach(a, 1, 9);
+  a.action('open-control');
+  a.change({ value: 'r1p6-position-arr-occupant' }, 'none');
+  a.change({ value: 'r1p7-owner-cistern' }, 'Atreides');
+  a.action('close-control');
+  assert.match(a.app.innerHTML, /Итоги раунда 1/);
+  a.action('back');
+  a.action('back');
+  assert.equal(collectionIncome(a, 'Atreides'), '2');
+  assert.equal(collectionIncome(a, 'Guild'), '0');
+  assert.match(a.app.innerHTML, /Arrakeen<\/th><td>Пусто<\/td>/);
 });
 
 test('Ecaz collection guidance distinguishes shared desert spice from full Advanced stronghold income', async () => {
