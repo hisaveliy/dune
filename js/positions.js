@@ -65,6 +65,14 @@ export function boardPositions(game, round) {
   if (game.modules.discovery) locations.push({ id: 'jacurutu', name: 'Jacurutu Sietch' });
   const forts = locations.map(({ id, name, income = 0 }) => {
     const key = prefix + id;
+    const occupantKey = key + '-occupant';
+    const occupant = game.values[occupantKey];
+    if (occupant !== undefined) {
+      const occupied = game.selected.includes(occupant);
+      return { id, name, income, occupantKey, faction: occupant,
+        recorded: occupant === 'none' || occupied, occupants: occupied ? [occupant] : [] };
+    }
+
     const forces = forcesAt(game, key);
     const recorded = forces.some(force => force.count !== null);
     const legacyOwner = game.values[collection + '-owner-' + id];
@@ -82,12 +90,12 @@ export function boardPositions(game, round) {
     const selectedCount = count ?? previousCount;
     if (edited) {
       const occupied = game.selected.includes(selectedFaction) && Number(selectedCount) > 0;
-      return { id, key, name, income, faction: selectedFaction, count: selectedCount,
+      return { id, name, income, occupantKey, faction: occupied || selectedFaction === 'none' ? selectedFaction : '',
         recorded: selectedFaction === 'none' || occupied, occupants: occupied ? [selectedFaction] : [] };
     }
     const contested = occupants.length > 1 && !(occupants.length === 2 && occupants.every(f => alliance.includes(f)));
-    return { id, key, name, income, faction: previousFaction || (recorded && !occupants.length ? 'none' : ''),
-      count: previousCount, recorded, occupants, contested,
+    return { id, name, income, occupantKey, faction: previousFaction || (recorded && !occupants.length ? 'none' : ''),
+      recorded, occupants, contested,
       needsReview: !recorded && legacyOwner === undefined && legacy.length > 1 };
   });
 

@@ -1153,11 +1153,10 @@ test('Spice Collection uses post-battle fortress counts with Homeworlds disabled
   assert.equal(a.game().active, '1|6|shared|positions');
   assert.deepEqual(
     [...a.app.innerHTML.matchAll(/data-value="(r1p6-position-arr-[^"]+)"/g)].map(match => match[1]),
-    ['r1p6-position-arr-faction', 'r1p6-position-arr-count']
+    ['r1p6-position-arr-occupant']
   );
   assert.doesNotMatch(a.app.innerHTML, /Homeworlds|r1p6-position-world-/);
-  a.change({ value: 'r1p6-position-arr-faction' }, 'Atreides');
-  a.change({ value: 'r1p6-position-arr-count' }, '2');
+  a.change({ value: 'r1p6-position-arr-occupant' }, 'Atreides');
   a.action('next');
   assert.equal(a.game().active, '1|7|shared|main');
   assert.match(a.app.innerHTML, /Атрейдесы · Пол/);
@@ -1172,8 +1171,7 @@ test('Spice Collection uses post-battle fortress counts with Homeworlds disabled
   assert.equal(collectionIncome(a, 'Guild'), '0');
 
   a.action('back');
-  a.change({ value: 'r1p6-position-arr-faction' }, 'Guild');
-  a.change({ value: 'r1p6-position-arr-count' }, '1');
+  a.change({ value: 'r1p6-position-arr-occupant' }, 'Guild');
   a.action('next');
   const loaded = await resume(a.game());
   assert.equal(collectionIncome(loaded, 'Atreides'), '0');
@@ -1225,10 +1223,9 @@ test('old Spice Collection saves retain fortress assignments and elapsed phase t
   assert.equal(collectionIncome(a, 'Guild'), '0');
   assert.match(a.app.innerHTML, /В старой партии несколько владельцев/);
   a.action('back');
-  assert.match(a.app.innerHTML, /data-value="r1p6-position-arr-count"[^>]*>[^<]*(?:<option[^>]*>[^<]*<\/option>)*<option value="3" selected>/);
-  a.change({ value: 'r1p6-position-car-faction' }, 'Guild');
-  a.change({ value: 'r1p6-position-car-count' }, '1');
-  a.change({ value: 'r1p6-position-arr-faction' }, 'none');
+  assert.match(a.app.innerHTML, /data-value="r1p6-position-arr-occupant"[^>]*>[^<]*(?:<option[^>]*>[^<]*<\/option>)*<option value="Atreides" selected>/);
+  a.change({ value: 'r1p6-position-car-occupant' }, 'Guild');
+  a.change({ value: 'r1p6-position-arr-occupant' }, 'none');
   a.action('next');
   const loaded = await resume(a.game());
   assert.doesNotMatch(loaded.app.innerHTML, /В старой партии несколько владельцев/);
@@ -1258,8 +1255,7 @@ test('Homeworld faction selections determine bank income in Basic and Advanced S
     a.change({ value: 'r1p6-position-world-Richese-faction' }, 'Guild');
     a.change({ value: 'r1p6-position-world-Fremen-faction' }, 'Guild');
     if (advanced) a.change({ value: 'r1p6-position-world-salusa-faction' }, 'Guild');
-    a.change({ value: 'r1p6-position-arr-faction' }, 'Guild');
-    a.change({ value: 'r1p6-position-arr-count' }, '1');
+    a.change({ value: 'r1p6-position-arr-occupant' }, 'Guild');
 
     const loaded = await resume(a.game());
     assert.equal(loaded.game().active, '1|6|shared|positions');
@@ -1335,8 +1331,7 @@ test('Ecaz collection guidance distinguishes shared desert spice from full Advan
       if (alliances) {
         assert.equal(collectionIncome(a, 'Guild'), advanced ? '2' : '0');
         a.action('back');
-        a.change({ value: 'r1p6-position-arr-faction' }, 'Ecaz');
-        a.change({ value: 'r1p6-position-arr-count' }, '1');
+        a.change({ value: 'r1p6-position-arr-occupant' }, 'Ecaz');
         a.action('next');
         assert.equal(collectionIncome(a, 'Guild'), '0');
       }

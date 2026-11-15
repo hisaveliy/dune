@@ -2,7 +2,7 @@ import { state } from "../state.js";
 import { N } from "../data.js";
 import { current } from "../game.js";
 import { boardPositions } from "../positions.js";
-import { esc, panel } from "../ui.js";
+import { panel } from "../ui.js";
 import { cardHolder, strongholdEffects } from "./battle.js";
 import { discoveryHints, fortStatus, homeworldStatus, locationRow } from "./positions.js";
 
@@ -36,8 +36,7 @@ export function control() {
     const card = game.advanced && game.modules.stronghold && strongholdEffects[fort.id]
       ? `<p><strong>Stronghold Card · ${holder ? N[holder] : cardRound ? 'держатель не указан' : 'выдаётся в конце первого раунда'}</strong></p><p>${strongholdEffects[fort.id]}</p>` : '';
     return locationRow(fort.name, fortStatus(fort),
-      (fort.occupants.length && fort.count ? `<p>Войска · ${esc(fort.count)}</p>` : '')
-      + benefit + income + card + (fort.id === 'jacurutu' ? `<p>${discoveryHints.jacurutu}</p>` : '')
+      benefit + income + card + (fort.id === 'jacurutu' ? `<p>${discoveryHints.jacurutu}</p>` : '')
       || '<p>Контроль этой крепости учитывается при проверке победы.</p>');
   }).join('');
   const discoveryRows = discoveries.map(location =>

@@ -3,8 +3,6 @@ import { boardPositions } from "../positions.js";
 import { state } from "../state.js";
 import { esc, panel, select } from "../ui.js";
 
-const counts = [['', 'Не указано'], ...Array.from({ length: 21 }, (_, count) => [count, count])];
-const fortressCounts = counts.filter(([count]) => count !== 0);
 export const discoveryHints = {
   jacurutu: 'Считается крепостью. Победитель боя здесь получает по 1 спайсу за каждое войско противника, которое не было выставлено на диске и отправилось в Tanks.',
   cistern: 'Фракция, занимающая Cistern в Spice Collection, получает 2 спайса из банка.',
@@ -21,7 +19,7 @@ export function locationRow(name, status, editor) {
 }
 
 export function fortStatus(fort) {
-  if (fort.needsReview) return 'В старой партии несколько владельцев. Уточните войска.';
+  if (fort.needsReview) return 'В старой партии несколько владельцев. Уточните, кто занимает крепость.';
   if (!fort.recorded && !fort.occupants.length) return 'Не указано';
   if (!fort.occupants.length) return 'Пусто';
   const factions = fort.occupants.map(f => N[f]).join(' и ');
@@ -41,16 +39,11 @@ export function positions(round) {
   const playerOptions = g.selected.map(f => [f, N[f]]);
   const factions = [['', 'Не указано'], ['none', 'Пусто'], ...playerOptions];
   return panel('Войска после боя', `
-    <p class="muted">Нажмите на крепость, чтобы указать войска. Учитывайте только бойцов.</p>
-    ${forts.map(fort => {
-      const status = N[fort.faction] && !fort.recorded && !fort.occupants.length
-        ? N[fort.faction] + ' · укажите количество' : fortStatus(fort);
-      const summary = fort.occupants.length === 1 && fort.count ? `${status} · ${esc(fort.count)}` : status;
-      return locationRow(fort.name, summary, `<div class="grid">
-        <label>Фракция${select(fort.key + '-faction', factions, fort.faction)}</label>
-        <label>Количество войск${select(fort.key + '-count', fortressCounts, fort.count)}</label>
-      </div>` + (fort.id === 'jacurutu' ? `<p class="muted">${discoveryHints.jacurutu}</p>` : ''));
-    }).join('')}
+    <p class="muted">Укажите, чьи бойцы остались в крепости.</p>
+    ${forts.map(fort => locationRow(fort.name, fortStatus(fort),
+      `<label>Фракция${select(fort.occupantKey, factions, fort.faction, fort.name)}</label>`
+      + (fort.id === 'jacurutu' ? `<p class="muted">${discoveryHints.jacurutu}</p>` : '')
+    )).join('')}
   `) + (homeworlds.length ? panel('Homeworlds', `
     ${homeworlds.map(world => locationRow(world.name, homeworldStatus(world),
       `<label>Кто занимает мир?${select(world.factionKey, playerOptions, world.occupier || world.native, world.name)}</label>`
